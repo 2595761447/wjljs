@@ -162,6 +162,23 @@
     .sd-tag{font-size:9px;padding:1px 3px;border-radius:4px;}
     .stats-cal .sd-num{font-size:11px;}
   }
+
+  /* ☁ 云端同步 */
+  .gh-bar{display:flex;align-items:center;justify-content:space-between;background:var(--tag);border-radius:14px;padding:10px 14px;margin-top:14px;font-size:13px;color:var(--primary);cursor:pointer;font-weight:700;}
+  .gh-bar .gh-left{display:flex;align-items:center;gap:7px;}
+  .gh-dot{width:8px;height:8px;border-radius:50%;background:#C4BCB4;flex:0 0 auto;}
+  .gh-bar.on .gh-dot{background:var(--good);}
+  .gh-bar.err .gh-dot{background:var(--warn);}
+  .gh-bar .gh-right{font-size:12px;color:var(--muted);font-weight:600;}
+  .overlay{position:fixed;inset:0;background:rgba(61,50,46,.45);z-index:99;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal{background:#fff;border-radius:22px;padding:20px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;box-shadow:0 12px 40px rgba(61,50,46,.25);}
+  .modal h3{margin:0 0 6px;font-size:18px;font-weight:800;}
+  .modal .muted{font-size:12px;line-height:1.6;}
+  .modal .field{margin-bottom:12px;}
+  .modal .field label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px;}
+  .modal .mrow{display:flex;gap:8px;margin-top:14px;}
+  .modal .btn{border:none;background:var(--tag);color:var(--ink);font-weight:700;padding:11px 14px;border-radius:12px;cursor:pointer;flex:1;font-size:14px;}
+  .modal .btn.primary{background:var(--primary);color:#fff;}
 </style>
 </head>
 <body>
@@ -170,6 +187,10 @@
     <div class="date-line" id="topDate">8月20日 · 星期四</div>
     <h1 id="topGreet">今天，慢慢来</h1>
     <div class="top-badge" id="topBadge">连续打卡 0 天</div>
+    <div class="gh-bar" id="ghBar" onclick="openGithubModal()">
+      <span class="gh-left"><span class="gh-dot" id="ghDot"></span><span id="ghStatus">☁ 云端未连接</span></span>
+      <span class="gh-right">设置同步 ›</span>
+    </div>
   </header>
 
   <main class="main" id="mainBox">
@@ -738,7 +759,7 @@ function load(){
   Object.keys(data.records).forEach(d=>{(data.records[d].items||[]).forEach(r=>{if(!r.tag)r.tag=judgeTag(r.name)||part2tag(r.part)||'other';});});
   save();
 }
-function save(){localStorage.setItem(STORE_KEY,JSON.stringify(data));}
+function save(){localStorage.setItem(STORE_KEY,JSON.stringify(data));if(typeof GitHubSync!=='undefined')GitHubSync.maybePush();}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1700);}
 
 function hasRecord(d){return data.records[d]&&data.records[d].items&&data.records[d].items.length>0;}
@@ -1304,6 +1325,118 @@ function doImport(e){
   r.readAsText(f);e.target.value='';
 }
 
+/* ---------- ☁ GitHub 自动同步（换设备数据不丢） ---------- */
+const GH_KEY='fitnessGH_v1';
+function loadGH(){try{const s=localStorage.getItem(GH_KEY);if(s)return JSON.parse(s);}catch(e){}return null;}
+function saveGH(cfg){try{localStorage.setItem(GH_KEY,JSON.stringify(cfg));}catch(e){}}
+let ghCfg=loadGH();
+let ghBusy=false,pushTimer=null;
+function b64enc(str){return btoa(unescape(encodeURIComponent(str)));}
+function b64dec(b64){return decodeURIComponent(escape(atob(b64.replace(/\s/g,''))));}
+function setGhStatus(txt){
+  const el=$('ghStatus');if(el)el.textContent=txt;
+  const bar=$('ghBar');if(!bar)return;
+  bar.classList.toggle('on',/已同步|已连接/.test(txt));
+  bar.classList.toggle('err',/失败|未授权|禁止/.test(txt));
+}
+function ghPath(){return ghCfg.path||'fitness-data.json';}
+function encodeRepo(repo){const parts=(repo||'').split('/').filter(Boolean);if(parts.length<2)return encodeURIComponent(repo||'');return encodeURIComponent(parts[0])+'/'+encodeURIComponent(parts.slice(1).join('/'));}
+function ghErrorTip(e){
+  const status=e.status;
+  const msg=String(e.message||e||'');
+  if(msg.indexOf('Failed to fetch')>=0)return '网络/浏览器拦截：请换 Chrome / Edge / Safari 浏览器；部分国产手机浏览器会拦截跨域请求。';
+  if(status===401||msg.indexOf('Bad credentials')>=0)return '未授权：Token 无效或已过期，请重新生成 Token（权限勾选 Contents 读写）。';
+  if(status===404||msg.indexOf('Not Found')>=0)return '仓库或文件不存在（404）：①仓库填成「用户名/仓库名」②分支名是否正确③仓库已创建？';
+  if(status===403||msg.indexOf('Forbidden')>=0)return '禁止访问（403）：Token 权限不足（没勾这个仓库或没开 Contents 读写）。';
+  if(status===409)return '仓库为空或分支不存在（409）。首次请先点「⬆ 上传」。';
+  return (status?status+' ':'')+msg;
+}
+const GitHubSync={
+  isOn(){return !!(ghCfg&&ghCfg.token&&ghCfg.repo);},
+  async api(path,opts){
+    opts=opts||{};
+    const headers={'Accept':'application/vnd.github+json','Authorization':'Bearer '+ghCfg.token};
+    if(opts.body)headers['Content-Type']='application/json';
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),20000);
+    let res;
+    try{res=await fetch('https://api.github.com'+path,{method:opts.method||'GET',headers,body:opts.body,signal:ctrl.signal});}
+    catch(e){clearTimeout(timer);throw new Error('请求超时或网络中断，请稍后重试');}
+    clearTimeout(timer);
+    if(!res.ok){let msg=res.status+' '+(res.statusText||'');
+      try{const j=await res.json();if(j&&j.message)msg=j.message;}catch(e){}
+      if(String(msg).indexOf('Bad credentials')>=0)msg='Token 无效或权限不足';
+      const err=new Error(msg);err.status=res.status;throw err;}
+    if(res.status===204)return null;
+    return res.json();
+  },
+  async getRemote(){
+    const p='/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath())+'?ref='+(ghCfg.branch||'main');
+    try{return await this.api(p);}catch(e){if(e.status===404)return null;if(e.status===409&&/empty/i.test(e.message||''))return null;throw e;}
+  },
+  async pull(){
+    if(!this.isOn()||ghBusy)return;
+    ghBusy=true;setGhStatus('同步中…');
+    try{
+      const f=await this.getRemote();
+      if(f&&f.content){const d=JSON.parse(b64dec(f.content));
+        if(d&&d.records){data=d;try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}catch(e){}renderAll();setGhStatus('已同步 ☁');toast('已从云端拉取最新记录');}
+        else setGhStatus('已连接');}
+      else{ghBusy=false;await this.push();}
+    }
+    catch(e){setGhStatus('拉取失败：'+ghErrorTip(e));}
+    finally{ghBusy=false;}
+  },
+  async push(){
+    if(!this.isOn()||ghBusy)return;
+    const json=JSON.stringify(data);
+    const bytes=unescape(encodeURIComponent(json)).length;
+    if(bytes>900000){setGhStatus('数据超 1MB 上限');toast('数据太大，GitHub 放不下，请用导出备份');return;}
+    ghBusy=true;setGhStatus('同步中…');
+    try{
+      const content=b64enc(json);
+      const f=await this.getRemote().catch(()=>null);
+      const body={message:'fitness-workbench sync '+new Date().toISOString(),content,branch:ghCfg.branch||'main'};
+      if(f&&f.sha)body.sha=f.sha;
+      await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
+      setGhStatus('已同步 ☁');}
+    catch(e){setGhStatus('推送失败：'+ghErrorTip(e));}
+    finally{ghBusy=false;}
+  },
+  maybePush(){if(!this.isOn())return;if(pushTimer)clearTimeout(pushTimer);pushTimer=setTimeout(()=>this.push(),1500);},
+  init(){if(this.isOn())this.pull();else setGhStatus('☁ 云端未连接');}
+};
+function openGithubModal(){
+  const cfg=ghCfg||{};
+  const root=$('modalRoot');
+  root.innerHTML='<div class="overlay"><div class="modal">'+
+    '<h3>☁ GitHub 自动同步</h3>'+
+    '<p class="muted">把打卡数据存到你的 GitHub 仓库，换手机/电脑时点「⬇ 下载」记录就全回来。需要一个有 Contents 读写权限的 Token（和小说工作台同一套玩法）。</p>'+
+    '<div class="field"><label>GitHub Token（github_pat_ 或 ghp_ 开头）</label><input id="gToken" type="password" placeholder="github_pat_..." value="'+(cfg.token||'')+'"></div>'+
+    '<div class="field"><label>仓库（必须填 用户名/仓库名）</label><input id="gRepo" placeholder="例如：2595761447/-" value="'+(cfg.repo||'')+'"></div>'+
+    '<div class="field"><label>分支（新仓库一般是 main）</label><input id="gBranch" placeholder="main" value="'+(cfg.branch||'main')+'"></div>'+
+    '<div class="field"><label>云端文件名（默认即可）</label><input id="gPath" placeholder="fitness-data.json" value="'+(cfg.path||'fitness-data.json')+'"></div>'+
+    '<p class="muted" style="font-size:11px">Token 只存在你本机浏览器，不上传、只用于本工作台；可随时在 GitHub 撤销。GitHub 单文件上限 1MB。</p>'+
+    '<div class="mrow">'+
+      '<button class="btn" onclick="closeModal()">取消</button>'+
+      '<button class="btn" id="gPull">⬇ 下载</button>'+
+      '<button class="btn" id="gPush">⬆ 上传</button>'+
+      '<button class="btn primary" id="gSave">保存并连接</button>'+
+    '</div>'+
+  '</div></div>';
+  root.querySelector('.overlay').addEventListener('click',e=>{if(e.target.classList.contains('overlay'))closeModal();});
+  $('gSave').onclick=()=>{
+    const token=$('gToken').value.trim();
+    const repo=$('gRepo').value.trim();
+    if(!token||!repo){toast('请填 Token 和 仓库');return;}
+    ghCfg={token,repo,branch:$('gBranch').value.trim()||'main',path:$('gPath').value.trim()||'fitness-data.json'};
+    saveGH(ghCfg);closeModal();GitHubSync.init();
+  };
+  $('gPull').onclick=()=>GitHubSync.pull();
+  $('gPush').onclick=()=>GitHubSync.push();
+}
+function closeModal(){const root=$('modalRoot');if(root)root.innerHTML='';}
+
 function renderAll(){renderTop();renderToday();renderPosture();renderTemplates();renderCalendar();renderStats();renderBody();}
 
 /* 判断一天的主要训练类型标签 */
@@ -1319,6 +1452,8 @@ function getDayTags(rec){
 }
 
 load();renderAll();
+GitHubSync.init();
 </script>
+<div id="modalRoot"></div>
 </body>
 </html>
