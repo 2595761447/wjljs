@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>健身打卡工作台</title>
+<style>
+  :root{
+    --bg:#F5F0EA;--surface:#FFFFFF;--ink:#3D322E;--muted:#8C8078;
+    --primary:#4A3B4A;--primary-light:#6B576B;--line:#E8E0D8;
+    --tag:#F0EAE3;--good:#7BAE7F;--warn:#E6A278;--radius:20px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  .app{max-width:800px;margin:0 auto;min-height:100vh;position:relative;}
+  .top{background:var(--surface);border-radius:0 0 28px 28px;padding:24px 20px 18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(74,59,74,.06);}
+  .date-line{font-size:13px;color:var(--muted);letter-spacing:1px;}
+  .top h1{margin:8px 0 12px;font-size:30px;font-weight:700;}
+  .top-badge{display:inline-block;background:var(--tag);color:var(--primary);padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;}
+  .main{padding:0 14px 110px;}
+  .view{display:none;}
+  .view.show{display:block;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(74,59,74,.04);}
+  .card-title{font-size:16px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:22px 0;}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:10;}
+  .nav-btn{flex:1;border:none;background:transparent;color:var(--muted);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 2px;margin:0 4px;border-radius:14px;}
+  .nav-btn .icon{font-size:20px;line-height:1;}
+  .nav-btn.active{background:var(--primary);color:#fff;}
+  button{font-family:inherit;}
+  .btn-primary{border:none;background:var(--primary);color:#fff;font-weight:700;padding:13px 16px;border-radius:14px;cursor:pointer;width:100%;font-size:15px;transition:.15s;}
+  .btn-primary:active{transform:scale(.98);}
+  .btn-secondary{border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;padding:10px 14px;border-radius:12px;cursor:pointer;}
+  .btn-ghost{border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;padding:6px 8px;}
+  .btn-xs{font-size:12px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;}
+  input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;color:var(--ink);background:#fff;outline:none;font-family:inherit;}
+  input:focus,select:focus,textarea:focus{border-color:var(--primary-light);}
+  .row{display:flex;gap:8px;flex-wrap:wrap;}
+  .row>*,.col{flex:1;min-width:70px;}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
+  .tag{display:inline-block;background:var(--tag);color:var(--primary);border-radius:999px;font-size:11px;padding:2px 8px;font-weight:600;}
+  .muted{color:var(--muted);font-size:13px;}
+  .note{background:#FAF8F5;border-radius:12px;padding:12px;font-size:13px;color:var(--muted);line-height:1.7;}
+
+  /* 训练项 */
+  .train-item{background:#FAF8F5;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;}
+  .train-item.done{opacity:.7;background:#F0F7F0;border-color:#C8E0C8;}
+  .train-top{display:flex;align-items:flex-start;gap:10px;}
+  .train-top input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin-top:2px;accent-color:var(--primary);}
+  .train-main{flex:1;}
+  .train-name{font-size:16px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .train-meta{font-size:13px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .coach{margin-top:10px;background:#fff;border-radius:12px;padding:12px;font-size:13px;line-height:1.7;display:none;}
+  .coach.open{display:block;}
+  .coach-row{margin-bottom:8px;}
+  .coach-row b{color:var(--primary);font-size:12px;}
+  .train-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .edit-area{background:#fff;border-radius:12px;padding:12px;margin-top:10px;display:none;border:1px solid var(--line);}
+
+  /* 今日计划总览 */
+  .plan-overview{background:linear-gradient(135deg,#6B576B,#4A3B4A);color:#fff;border-radius:var(--radius);padding:18px;margin-bottom:12px;box-shadow:0 6px 18px rgba(74,59,74,.18);}
+  .plan-overview .po-row{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;}
+  .plan-overview .po-day{font-size:13px;opacity:.85;letter-spacing:.5px;}
+  .plan-overview .po-name{font-size:20px;font-weight:800;margin:6px 0 4px;}
+  .plan-overview .po-sub{font-size:12px;opacity:.88;}
+  .plan-overview .po-prog{font-size:30px;font-weight:800;line-height:1;flex:0 0 auto;}
+  .po-bar{height:8px;background:rgba(255,255,255,.22);border-radius:999px;overflow:hidden;margin-top:12px;}
+  .po-bar .fill{height:100%;background:var(--good);border-radius:999px;transition:.3s;}
+  .po-empty{background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--radius);padding:18px;margin-bottom:12px;text-align:center;}
+  .po-empty .big{font-size:16px;font-weight:800;margin-bottom:4px;}
+  .po-empty .sub{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;}
+
+  /* 训练项（手机训练版） */
+  .train-item{display:flex;gap:12px;align-items:stretch;background:#FAF8F5;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;}
+  .train-item.done{opacity:.72;background:#F0F7F0;border-color:#C8E0C8;}
+  .seq{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+  .train-item.done .seq{background:var(--good);}
+  .train-body{flex:1;min-width:0;}
+  .train-name{font-size:17px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .train-plan{font-size:13px;color:var(--muted);line-height:1.6;}
+  .train-plan b{color:var(--ink);font-weight:700;}
+  .train-normal{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.6;background:#fff;border-radius:10px;padding:8px 10px;}
+  .coach{margin-top:8px;background:#fff;border-radius:12px;padding:12px;font-size:13px;line-height:1.7;display:none;border:1px solid var(--line);}
+  .coach.open{display:block;}
+  .coach-row{margin-bottom:8px;}
+  .coach-row b{color:var(--primary);font-size:12px;}
+  .train-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .done-btn{flex:0 0 auto;align-self:stretch;min-width:62px;border:none;background:var(--primary);color:#fff;font-weight:700;border-radius:14px;font-size:14px;cursor:pointer;padding:0 8px;line-height:1.3;}
+  .train-item.done .done-btn{background:var(--good);}
+  .done-btn:active{transform:scale(.97);}
+  @media (max-width:480px){
+    .top h1{font-size:26px;}
+    .plan-overview .po-name{font-size:18px;}
+    .seq{width:30px;height:30px;font-size:14px;}
+    .done-btn{font-size:13px;min-width:56px;}
+    .btn-primary{padding:14px 16px;}
+  }
+
+  /* 模板卡片 */
+  .tmpl-card{border:1px solid var(--line);border-radius:18px;padding:14px;background:var(--surface);margin-bottom:10px;}
+  .tmpl-name{font-size:16px;font-weight:800;margin-bottom:6px;}
+  .tmpl-meta{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  .tmpl-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .pill{background:var(--tag);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--primary);}
+
+  /* 日历 */
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal .d{aspect-ratio:1;border-radius:14px;background:#FAF8F5;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);position:relative;cursor:pointer;}
+  .cal .d.has{background:var(--primary);color:#fff;font-weight:700;}
+  .cal .d.today{outline:2px solid var(--warn);outline-offset:-2px;}
+  .wk{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 4px;}
+
+  /* 统计条 */
+  .bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px;}
+  .bar .name{width:40px;color:var(--muted);flex:0 0 auto;}
+  .bar .track{flex:1;background:var(--tag);border-radius:999px;height:12px;overflow:hidden;}
+  .bar .fill{height:100%;background:var(--primary);border-radius:999px;}
+  .bar .val{width:26px;text-align:right;font-size:12px;color:var(--muted);}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(20px);background:var(--primary);color:#fff;padding:11px 20px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:50;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .quick-box{background:#FAF8F5;border-radius:14px;padding:12px;margin-top:10px;border:1px dashed var(--line);}
+
+  /* 体态 */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;font-size:14px;}
+  .chip.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .phase-tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;}
+  .phase-松{background:#E8F0E8;color:#5E8C5E;} .phase-激{background:#EDE7F3;color:#7A5E9C;} .phase-强{background:#F3E7E0;color:#C0744A;} .phase-收{background:#E3ECF2;color:#4A7A9C;}
+
+  /* 统计页：日历+训练标签 */
+  .stats-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .stats-month{font-size:18px;font-weight:800;}
+  .stats-wk{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 4px;}
+  .stats-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .stats-cal .sd{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:5px 4px 6px;min-height:72px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:.1s;}
+  .stats-cal .sd:active{transform:scale(.98);}
+  .stats-cal .sd.empty{background:transparent;border:none;pointer-events:none;}
+  .stats-cal .sd.today{border-color:var(--primary);box-shadow:0 0 0 2px rgba(74,59,74,.1);}
+  .stats-cal .sd.done-day{background:#F2EAF4;border-color:#C9A9DD;}
+  .stats-cal .sd-num{font-size:12px;font-weight:700;color:var(--ink);line-height:1;}
+  .stats-cal .sd-tags{display:flex;flex-direction:column;gap:2px;margin-top:auto;}
+  .sd-tag{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sd-tag.back{background:#D6EAD6;color:#3A6B3A;}      /* 背部训练 */
+  .sd-tag.leg{background:#FCE4D6;color:#9A5A3A;}       /* 臀腿训练 */
+  .sd-tag.chest{background:#F8D7DA;color:#8A3A42;}     /* 胸+肩训练 */
+  .sd-tag.learn{background:#D1ECF1;color:#2A5A6A;}     /* 动作学习/矫正 */
+  .sd-tag.round{background:#E2D4F0;color:#5A3A7A;}     /* 圆肩专项 */
+  .sd-tag.cardio{background:#FFF3CD;color:#856404;}    /* 有氧 */
+  .sd-tag.other{background:#E2E3E5;color:#4A4A4A;}     /* 其他 */
+  .stats-summary{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+  .sum-pill{background:#FAF8F5;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink);}
+  .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .legend .sd-tag{flex:0 0 auto;cursor:default;}
+  .stats-backup{margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);}
+  @media (max-width:380px){
+    .stats-cal{gap:4px;}
+    .stats-cal .sd{min-height:62px;padding:4px 3px 5px;}
+    .sd-tag{font-size:9px;padding:1px 3px;border-radius:4px;}
+    .stats-cal .sd-num{font-size:11px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="date-line" id="topDate">8月20日 · 星期四</div>
+    <h1 id="topGreet">今天，慢慢来</h1>
+    <div class="top-badge" id="topBadge">连续打卡 0 天</div>
+  </header>
+
+  <main class="main" id="mainBox">
+    <!-- 今天 -->
+    <section class="view show" id="view-today">
+      <div id="planOverview"></div>
+      <div class="card">
+        <div class="card-title">📅 选择日期</div>
+        <input type="date" id="datePicker" onchange="changeDate(this.value)">
+        <div id="dateHint" class="muted" style="margin-top:6px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎙️ 一句话速记</div>
+        <div class="note" style="margin-bottom:10px;">用大白话写今天练了啥，比如：<b>练背 高位下拉 引体向上</b> 或 <b>练背高位下拉4组 引体向上 跑步20分钟</b>。没写组数默认 4组12个，前面带的「练背/练腿/有氧」会自动变成标签。</div>
+        <textarea id="quickNote" rows="3" placeholder="例如：练背 高位下拉 引体向上 跑步20分钟"></textarea>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn-primary" style="flex:1" onclick="parseQuickNote()">🔍 识别预览</button>
+          <button class="btn-secondary" style="flex:1" onclick="fillQuickExample()">💡 填个例子</button>
+        </div>
+        <div id="quickPreview" style="display:none;margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🚀 快速开始</div>
+        <div class="row">
+          <button class="btn-secondary" onclick="showApplyPanel()" style="flex:1;">📋 套用模板</button>
+          <button class="btn-secondary" onclick="showAddPanel()" style="flex:1;">➕ 加一个动作</button>
+        </div>
+        <div id="applyPanel" class="quick-box" style="display:none;">
+          <label>选择常用模板</label>
+          <select id="applyTemplateSelect"></select>
+          <button class="btn-primary" style="margin-top:8px;" onclick="doApplyTemplate()">确认套用到这一天</button>
+        </div>
+        <div id="addPanel" class="quick-box" style="display:none;">
+          <label>动作名（可直接打字，或从动作库选）</label>
+          <input id="quickActionName" list="quickActionList" placeholder="例如：哑铃弯举" autocomplete="off" oninput="autoTag('quickActionName','quickActionTag')">
+          <datalist id="quickActionList"></datalist>
+          <label>部位</label>
+          <select id="quickActionPart"><option>背</option><option>胸</option><option>肩</option><option>腿</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
+          <label>标签（自动判断，可手动改）</label>
+          <select id="quickActionTag">
+            <option value="back">练背</option><option value="leg">练腿</option><option value="chest">胸+肩</option>
+            <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
+          </select>
+          <button class="btn-primary" style="margin-top:8px;" onclick="doAddCustomAction()">添加到当天</button>
+        </div>
+        <button class="btn-secondary" onclick="showSpecialPanel()" style="margin-top:10px;width:100%;">🏷️ 特殊一次性计划（不存模板）</button>
+        <div id="specialPanel" class="quick-box" style="display:none;">
+          <label>选择一次性计划</label>
+          <select id="specialPlanSelect"></select>
+          <button class="btn-primary" style="margin-top:8px;" onclick="doApplySpecialPlan()">确认套用到这一天</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="todayListTitle">📝 今天的训练</div>
+        <div id="todayList"></div>
+        <label style="margin-top:12px;">当天备注</label>
+        <textarea id="dayNote" rows="2" placeholder="比如：今天状态一般，背有点酸……" onchange="saveDayNote()"></textarea>
+      </div>
+    </section>
+
+    <!-- 体态 -->
+    <section class="view" id="view-posture">
+      <div class="card">
+        <div class="card-title">🩺 我的体态问题</div>
+        <button class="btn-primary" style="width:100%;margin-bottom:12px;" onclick="quickRoundShoulder()">⚡ 圆肩专项（我常练，一键出计划）</button>
+        <div class="note" style="margin-bottom:12px;">勾选你有的体态问题（可多选），或在下面自由写你的描述点「分析」，App 会自动生成矫正计划。</div>
+        <div id="postureChips" class="chips"></div>
+        <div style="margin-top:14px;">
+          <label>我的描述（自由写，例如：肩膀往前扣、脖子前伸、骨盆前倾）</label>
+          <textarea id="postureNote" rows="3" placeholder="写下你的体态问题，点「分析」自动匹配…"></textarea>
+          <button class="btn-secondary" style="margin-top:8px;" onclick="analyzePostureText()">🔍 分析并自动勾选</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🤖 自动生成的矫正计划</div>
+        <div id="posturePlan"></div>
+        <div id="postureConfirm" style="display:none;">
+          <div style="margin-top:12px;">
+            <label>把计划填到这一天</label>
+            <input type="date" id="postureDate">
+          </div>
+          <button class="btn-primary" style="margin-top:10px;" onclick="confirmPosturePlan()">✅ 确认填充到日历</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 模板列表 -->
+    <section class="view" id="view-templates">
+      <div class="card">
+        <div class="card-title">📋 常用训练模板</div>
+        <div class="note" style="margin-bottom:12px;">模板是“母版”。套用到某一天后，那天的内容可以单独修改，不会改动母版。</div>
+        <div id="templateList"></div>
+        <button class="btn-primary" style="margin-top:8px;" onclick="createTemplate()">➕ 新建空白模板</button>
+      </div>
+    </section>
+
+    <!-- 模板编辑 -->
+    <section class="view" id="view-template-edit">
+      <div class="card">
+        <div class="card-title">✏️ 编辑模板</div>
+        <label>模板名称</label>
+        <input id="editTmplName">
+        <div id="editTmplItems"></div>
+        <div class="quick-box">
+          <label>往模板里加动作</label>
+          <input id="addToTmplName" list="addToTmplList" placeholder="从动作库选或输入新动作" autocomplete="off" oninput="autoTag('addToTmplName','addToTmplTag')">
+          <datalist id="addToTmplList"></datalist>
+          <label>部位</label>
+          <select id="addToTmplPart"><option>背</option><option>胸</option><option>肩</option><option>腿</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
+          <label>标签（自动判断，可手动改）</label>
+          <select id="addToTmplTag">
+            <option value="back">练背</option><option value="leg">练腿</option><option value="chest">胸+肩</option>
+            <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
+          </select>
+          <button class="btn-secondary" style="margin-top:8px;width:100%;" onclick="doAddToTemplate()">加入此模板</button>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <button class="btn-secondary" onclick="backToTemplates()">返回模板列表</button>
+          <button class="btn-primary" onclick="saveTemplateEdit()">保存修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 日历 -->
+    <section class="view" id="view-calendar">
+      <div class="card">
+        <div class="cal-head">
+          <button class="btn-ghost" onclick="changeMonth(-1)">◀</button>
+          <div class="card-title" style="margin:0;" id="calMonth"></div>
+          <button class="btn-ghost" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+        <div class="cal" id="cal"></div>
+        <div class="note" style="margin-top:12px;">点任意一天就能查看/编辑那天的训练，也可以直接套用模板。</div>
+      </div>
+    </section>
+
+    <!-- 统计 -->
+    <section class="view" id="view-stats">
+      <div class="card">
+        <div class="stats-head">
+          <button class="btn-ghost" onclick="changeStatsMonth(-1)">◀</button>
+          <div class="stats-month" id="statsMonth"></div>
+          <button class="btn-ghost" onclick="changeStatsMonth(1)">▶</button>
+        </div>
+        <div class="stats-wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+        <div class="stats-cal" id="statsCal"></div>
+        <div class="legend" id="statsLegend"></div>
+        <div class="stats-summary" id="statsSummary"></div>
+        <div class="stats-backup">
+          <div class="card-title">💾 数据备份</div>
+          <div class="row">
+            <button class="btn-secondary" onclick="exportData()">导出备份</button>
+            <button class="btn-secondary" onclick="importData()">导入恢复</button>
+          </div>
+          <div class="note" style="margin-top:10px;">数据只存在你自己的浏览器里。换手机或清缓存前，务必先「导出备份」。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 身体 -->
+    <section class="view" id="view-body">
+      <div class="card">
+        <div class="card-title">⚖️ 身体数据</div>
+        <form onsubmit="return addBody(event)">
+          <div class="row">
+            <div><label>日期</label><input id="bDate" type="date"></div>
+            <div><label>体重(kg)</label><input id="bWeight" type="number" step="0.1" min="0" placeholder="48.0"></div>
+            <div><label>腰围(cm·可选)</label><input id="bWaist" type="number" step="0.1" min="0" placeholder="70"></div>
+          </div>
+          <button class="btn-primary" type="submit">保存</button>
+        </form>
+        <div id="bodyLatest" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 体重变化曲线</div>
+        <div id="weightChart"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="today" onclick="switchTab('today')"><span class="icon">🏋️</span><span>今天</span></button>
+    <button class="nav-btn" data-tab="posture" onclick="switchTab('posture')"><span class="icon">🩺</span><span>体态</span></button>
+    <button class="nav-btn" data-tab="templates" onclick="switchTab('templates')"><span class="icon">📋</span><span>模板</span></button>
+    <button class="nav-btn" data-tab="calendar" onclick="switchTab('calendar')"><span class="icon">📅</span><span>日历</span></button>
+    <button class="nav-btn" data-tab="stats" onclick="switchTab('stats')"><span class="icon">📊</span><span>统计</span></button>
+    <button class="nav-btn" data-tab="body" onclick="switchTab('body')"><span class="icon">⚖️</span><span>身体</span></button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept="application/json" style="display:none" onchange="doImport(event)">
+
+<script>
+const STORE_KEY='fitness_workbench_v2';
+const PARTS=['背','胸','肩','腿','手臂','核心','有氧','拉伸'];
+
+/* 训练标签体系（统计页按这个归类，可自动判断） */
+const TAGS=[
+  {id:'back',text:'练背'},{id:'leg',text:'练腿'},{id:'chest',text:'胸+肩'},
+  {id:'cardio',text:'有氧'},{id:'learn',text:'动作学习'},{id:'round',text:'圆肩专项'},{id:'other',text:'其他'}
+];
+function tagText(id){const t=TAGS.find(x=>x.id===id);return t?t.text:(id||'其他');}
+function part2tag(p){
+  const m={'背':'back','腿':'leg','胸':'chest','肩':'chest','手臂':'other','核心':'other','有氧':'cardio','拉伸':'round'};
+  return m[p]||'other';
+}
+/* 输入动作名，自动判断属于哪个标签 */
+function judgeTag(name){
+  const n=(name||'').toLowerCase();
+  if(/圆肩|内扣|面拉|弹力带拉开|靠墙天使|门框|收下巴|颈后拉|肩外旋|w伸展|反向飞鸟|燕飞|超人/.test(name))return 'round';
+  if(/壶铃摇摆|土耳其起立|死虫式|平板支撑|鸟狗|猫牛|臀桥|蚌式/.test(name))return 'learn';
+  if(/跑步|慢跑|跳绳|骑车|单车|椭圆|划船机|爬楼|波比|hiit|快走|游泳|跳操|有氧/.test(n))return 'cardio';
+  if(/卧推|夹胸|飞鸟|侧平举|推胸|上斜|史密斯|哑铃推|前平举|阿诺德|肩推/.test(name))return 'chest';
+  if(/深蹲|硬拉|腿举|倒蹬|腿弯举|提踵|臀推|箭步|哈克|保加利亚/.test(name))return 'leg';
+  if(/下拉|划船|引体|背部|背阔|胸部支撑|高位/.test(name))return 'back';
+  if(/背/.test(name))return 'back';
+  if(/腿|臀/.test(name))return 'leg';
+  if(/胸|肩/.test(name))return 'chest';
+  if(/有氧/.test(name))return 'cardio';
+  return null;
+}
+function autoTag(nameId,selId){const j=judgeTag($(nameId).value);if(j)$(selId).value=j;}
+
+/* ---------- 一句话速记：大白话解析 ---------- */
+/* 标签关键词：写在动作前面（或跟动作连写），自动变成该天动作的标签 */
+const TAG_KEYWORDS=[
+  {kw:['练背','背部','背'],tag:'back'},
+  {kw:['练腿','腿部','臀腿','腿'],tag:'leg'},
+  {kw:['练胸','胸部','胸','胸肩','练肩','肩'],tag:'chest'},
+  {kw:['有氧','心肺','练有氧'],tag:'cardio'},
+  {kw:['圆肩','内扣','矫正'],tag:'round'},
+  {kw:['动作学习','学习','矫正学习'],tag:'learn'},
+  {kw:['拉伸','练拉伸'],tag:'round'},
+  {kw:['核心','练核心'],tag:'other'}
+];
+const ALL_KW=TAG_KEYWORDS.reduce((a,t)=>a.concat(t.kw),[]);
+function tag2part(tag){
+  const m={'back':'背','leg':'腿','chest':'胸','cardio':'有氧','learn':'核心','round':'拉伸','other':'其他'};
+  return m[tag]||'其他';
+}
+/* 从一段文字里抓「组数」和「次数/时长」 */
+function extractSetsReps(tok){
+  const m=tok.match(/(\d+)\s*分钟/);
+  if(m)return {sets:1,reps:m[1]+'分钟'};
+  let sets=null,reps=null;
+  const sm=tok.match(/(\d+)\s*组/);if(sm)sets=parseInt(sm[1]);
+  const rm=tok.match(/每组\s*(\d+)\s*(个|次|下)?/)||tok.match(/(\d+)\s*(个|次|下)/);
+  if(rm)reps=rm[1]+(rm[2]||'个');
+  return {sets,reps};
+}
+/* 核心：把大白话变成动作数组 */
+function parseWorkoutText(text){
+  let t=(text||'').trim();
+  if(!t)return [];
+  // 1) 标点换成空格
+  t=t.replace(/[，,、；;。.：:！!？?~～（）()]/g,' ');
+  // 2) 去掉口语虚词（只删已知的整词，不破坏动作名）
+  // 连词类：替换成空格，用来把连写的动作分开（如「高位下拉和硬拉」）
+  const SEP_FILLER=['和','跟','与','也','就','又','再','去','到','在','给','把','被','让','使','还','吧','加'];
+  // 虚词类：直接删掉，不插空格（避免把「引体向上3组」拆散）
+  const GLUE_FILLER=['今天','今日','这一天','练了','做了','搞了','完成','训练','运动','然后','接着','之后','上午','下午','晚上','早上','中午','有点','还有','以及','累','只','了','的','我','做','搞'];
+  SEP_FILLER.forEach(f=>{t=t.split(f).join(' ');});
+  GLUE_FILLER.forEach(f=>{t=t.split(f).join('');});
+  const tokens=t.split(/\s+/).map(x=>x.trim()).filter(Boolean);
+  const out=[];let ctx=null;
+  for(let raw of tokens){
+    let tok=raw.trim();if(!tok)continue;
+    // 3) 识别开头的标签词（如 练背 / 有氧），剥离后留给后面的动作
+    let tag=null;
+    for(const tk of TAG_KEYWORDS){
+      let hit=false;
+      for(const k of tk.kw){
+        if(tok.startsWith(k)){tag=tk.tag;tok=tok.slice(k.length);hit=true;break;}
+      }
+      if(hit)break;
+    }
+    if(tag)ctx=tag;
+    // 纯标签词（或剥离后只剩标签词本身），只设上下文，不生成动作
+    if(!tok||ALL_KW.includes(tok)){continue;}
+    // 4) 去掉组数/次数/时长，剩下的就是动作名
+    let name=tok.replace(/(\d+)\s*组/,'')
+                .replace(/每组\s*\d+\s*(个|次|下)?/,'')
+                .replace(/\d+\s*(个|次|下|分钟)/g,'')
+                .replace(/^(了|做|搞)/,'')
+                .trim();
+    if(!name)continue;
+    const sr=extractSetsReps(tok);
+    const sets=sr.sets!=null?sr.sets:4;
+    const reps=sr.reps!=null?sr.reps:'12个';
+    // 标签：有氧类强制有氧；否则用户显式写的标签优先，其次按动作名自动判断
+    const jt=judgeTag(name);
+    const finalTag=(jt==='cardio')?'cardio':(ctx||jt||null);
+    out.push({name,sets,reps,tag:finalTag,part:tag2part(finalTag)});
+  }
+  return out;
+}
+
+const DEFAULT_ACTIONS=[
+  {name:'大剪刀器械',part:'背',tips:'正常：大剪刀器械（竖把窄握），大剪刀拉向胸口。备选：反握杠铃划船，杠铃贴大腿拉向肚脐。'},
+  {name:'反握杠铃划船',part:'背',tips:'掌心朝上，杠铃贴大腿拉向肚脐。'},
+  {name:'对握高位下拉',part:'背',tips:'手肘朝屁股方向拉，顶峰夹背1秒。'},
+  {name:'对握单臂哑铃划船',part:'背',tips:'撑凳，手肘朝屁股方向拉，顶峰夹背1秒。'},
+  {name:'龙门架V把坐姿划船',part:'背',tips:'拉向胸口下方，身体完全靠凳子固定，不许借力。'},
+  {name:'器械坐姿划船',part:'背',tips:'拉向胸口下方，身体完全靠凳子固定，不许借力。'},
+  {name:'上斜凳胸部支撑哑铃划船',part:'背',tips:'趴30°凳，身体完全靠凳子固定，不许借力。'},
+  {name:'器械反向飞鸟',part:'背',tips:'像展翅一样向后打开，挤压肩胛骨中间。'},
+  {name:'俯身哑铃反向飞鸟',part:'背',tips:'最轻重量，像展翅一样向后打开，挤压肩胛骨中间。'},
+  {name:'龙门架面拉',part:'背',tips:'拉到额头两侧，面拉时肘高于腕。'},
+  {name:'面拉（收尾矫正）',part:'肩',tips:'龙门架面拉拉到额头两侧，肘高于腕；把肩膀拉回正。'},
+  {name:'侧卧肩外旋',part:'背',tips:'轻哑铃，给肱骨头“回正”的关键。'},
+  {name:'俯身W伸展',part:'背',tips:'徒手，给肱骨头“回正”的关键。'},
+  {name:'杠铃深蹲',part:'腿',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
+  {name:'哈克深蹲',part:'腿',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
+  {name:'罗马尼亚硬拉',part:'腿',tips:'屈髋为主，感受腘绳肌拉伸。'},
+  {name:'直腿硬拉',part:'腿',tips:'屈髋为主，感受腘绳肌拉伸。'},
+  {name:'倒蹬机（腿举）',part:'腿',tips:'稳定控制，下落时大腿不要贴胸。'},
+  {name:'坐姿腿弯举',part:'腿',tips:'练股二头肌，强化膝盖稳定性。'},
+  {name:'俯身腿弯举',part:'腿',tips:'练股二头肌，强化膝盖稳定性。'},
+  {name:'站姿提踵',part:'腿',tips:'练小腿，收尾。'},
+  {name:'坐姿提踵',part:'腿',tips:'练小腿，收尾。'},
+  {name:'肩袖激活',part:'肩',tips:'龙门架轻重量面拉（空缆绳）或俯身Y字上举。目的不是力竭，是唤醒肩胛骨后侧肌群。'},
+  {name:'俯身Y字上举',part:'肩',tips:'空手/1kg哑铃，目的不是力竭，是唤醒肩胛骨后侧肌群。'},
+  {name:'上斜史密斯卧推',part:'胸',tips:'手肘与身体夹角45度（不要打开成90度）。'},
+  {name:'上斜杠铃卧推',part:'胸',tips:'手肘与身体夹角45度。'},
+  {name:'上斜哑铃卧推',part:'胸',tips:'手肘与身体夹角45度。'},
+  {name:'平板杠铃卧推',part:'胸',tips:'推起时肩胛骨死死锁在靠背上，绝不送肩。'},
+  {name:'平板哑铃卧推',part:'胸',tips:'推起时肩胛骨死死锁在靠背上，绝不送肩。'},
+  {name:'地板哑铃卧推',part:'胸',tips:'肘部落到地板即停，不超伸；对内扣肩膀最友好。'},
+  {name:'蝴蝶机夹胸',part:'胸',tips:'手肘保持微屈且角度固定，像抱大树。'},
+  {name:'平板哑铃飞鸟',part:'胸',tips:'手肘保持微屈且角度固定，像抱大树。'},
+  {name:'龙门架绳索夹胸',part:'胸',tips:'手肘保持微屈且角度固定，像抱大树。'},
+  {name:'哑铃侧平举',part:'肩',tips:'做“倒水式”——倾斜哑铃尾端，小拇指朝上，强烈刺激中束。'},
+  {name:'壶铃摇摆',part:'腿',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力。'},
+  {name:'土耳其起立',part:'核心',tips:'入门版，徒手或轻哑铃。从躺姿到站姿的完整链条动作，提升肩胛骨稳定性和核心控制力。'},
+  {name:'弹力带拉开（Pull-Apart）',part:'背',tips:'双手握弹力带于胸前，水平向两侧拉开，感受肩胛骨向脊柱中间“夹拢”。'},
+  {name:'死虫式',part:'核心',tips:'仰卧，对侧手脚同时伸展。核心稳定了，上半身不容易塌腰含胸。'},
+  {name:'门框胸肌拉伸',part:'拉伸',tips:'把一周积累的胸部紧张彻底释放。'},
+  {name:'靠墙天使',part:'拉伸',tips:'把一周积累的胸部紧张彻底释放。'},
+  {name:'门框胸肌拉伸 + 靠墙天使',part:'拉伸',tips:'把一周积累的胸部紧张彻底释放，给下周恢复留出空间。'},
+  {name:'门框胸肌拉伸（用力前倾）',part:'拉伸',tips:'必须先做！先松解紧张的前侧，后面所有"拉"的动作才能有效把肩胛骨拉回去。'},
+  {name:'龙门架面拉（或俯身W伸展）',part:'肩',tips:'拉到额头两侧，肘高于腕。这是给你的肱骨头"回正"的最强动作。'},
+  {name:'上斜凳胸部支撑哑铃划船（对握）',part:'背',tips:'趴在凳子上，身体被固定死，完全无法借力含胸，纯靠背部把肩膀往后拽。'},
+  {name:'俯身哑铃反向飞鸟',part:'肩',tips:'展翅向后打开，挤压肩胛骨中间，越轻越要做标准。'},
+  {name:'地板哑铃卧推（轻重量）',part:'胸',tips:'因为地板限制了幅度，肩膀压力极小。只做轻重量找感觉，目标不是力竭，是感受胸肌控制。'},
+  {name:'哑铃侧平举（倒水式）',part:'肩',tips:'撑宽肩膀宽度，对冲内扣带来的"缩窄感"。'},
+  {name:'靠墙天使（徒手）',part:'拉伸',tips:'最后一次把肩膀"按"回正常位置。'},
+  {name:'收下巴（靠墙）',part:'肩',tips:'背靠墙眼睛平视，做"双下巴"后缩动作，激活深层颈屈肌，把前伸的头收回来。'},
+  {name:'弹力带颈后拉',part:'肩',tips:'弹力带绕颈后，双手向前拉，强化颈后肌群，对抗乌龟颈。'},
+  {name:'臀桥',part:'腿',tips:'仰卧屈膝抬臀，强化臀肌与腘绳肌，改善骨盆前倾。'},
+  {name:'猫牛式',part:'核心',tips:'四足跪姿，交替拱背与塌腰，松动整个脊柱，特别放松上背。'},
+  {name:'髂腰肌拉伸',part:'拉伸',tips:'弓步前压，拉伸紧张的大腿前侧髂腰肌，缓解骨盆前倾。'},
+  {name:'单臂哑铃侧平举',part:'肩',tips:'低重量单臂做，改善高低肩与单侧薄弱。'},
+  {name:'靠墙静蹲',part:'腿',tips:'背靠墙静蹲，强化股四头肌，稳定膝盖、改善膝超伸。'},
+  {name:'弹力带侧向行走',part:'腿',tips:'弹力带绕膝，侧向行走，强化臀中肌，稳定骨盆。'},
+  {name:'蚌式开合',part:'腿',tips:'侧卧膝盖开合，练臀中肌，改善假胯宽。'},
+  {name:'侧卧抬腿',part:'腿',tips:'侧卧上方腿上抬，强化外侧臀，改善假胯宽。'},
+  {name:'抓毛巾',part:'腿',tips:'脚底抓毛巾，激活足底肌群，改善扁平足。'},
+  {name:'脚趾抓地',part:'拉伸',tips:'站立脚趾反复抓地，强化足弓。'}
+];
+
+const DEFAULT_TEMPLATES=[
+  {
+    id:'tmpl-back',name:'背部训练（周二·矫正主战场）',tag:'back',
+    items:[
+      {name:'大剪刀器械',part:'背',sets:4,reps:'10-12',normal:'大剪刀器械（竖把窄握）',backup:'反握杠铃划船（掌心朝上）',tips:'大剪刀拉向胸口；反握划船杠铃贴大腿拉向肚脐'},
+      {name:'对握高位下拉',part:'背',sets:4,reps:'12/侧',normal:'对握高位下拉',backup:'对握单臂哑铃划船（撑凳）',tips:'手肘朝屁股方向拉，顶峰夹背1秒'},
+      {name:'龙门架V把坐姿划船',part:'背',sets:4,reps:'15',normal:'龙门架V把坐姿划船 / 器械坐姿划船',backup:'上斜凳胸部支撑哑铃划船（趴30°凳）',tips:'拉向胸口下方，身体完全靠凳子固定，不许借力'},
+      {name:'器械反向飞鸟',part:'背',sets:3,reps:'15-20',normal:'器械反向飞鸟',backup:'俯身哑铃反向飞鸟（最轻重量）',tips:'像展翅一样向后打开，挤压肩胛骨中间'},
+      {name:'龙门架面拉',part:'背',sets:2,reps:'各20',normal:'龙门架面拉（拉到额头两侧）',backup:'侧卧肩外旋（轻哑铃）+ 俯身W伸展（徒手）',tips:'面拉时肘高于腕；侧卧外旋是给肱骨头“回正”的关键'}
+    ]
+  },
+  {
+    id:'tmpl-legs',name:'臀腿训练（周四·正常练）',tag:'leg',
+    items:[
+      {name:'杠铃深蹲',part:'腿',sets:4,reps:'8-10',normal:'杠铃深蹲',backup:'哈克深蹲',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致'},
+      {name:'罗马尼亚硬拉',part:'腿',sets:4,reps:'10-12',normal:'罗马尼亚硬拉',backup:'直腿硬拉',tips:'屈髋为主，感受腘绳肌拉伸'},
+      {name:'倒蹬机（腿举）',part:'腿',sets:4,reps:'12-15',normal:'倒蹬机（腿举）',backup:'',tips:'稳定控制，下落时大腿不要贴胸'},
+      {name:'坐姿腿弯举',part:'腿',sets:4,reps:'15',normal:'坐姿腿弯举',backup:'俯身腿弯举',tips:'练股二头肌，强化膝盖稳定性'},
+      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',normal:'站姿提踵',backup:'坐姿提踵',tips:'练小腿，收尾。练完花2分钟做门框胸肌拉伸'}
+    ]
+  },
+  {
+    id:'tmpl-chest-shoulder',name:'胸+肩训练（周六·防守反击战·完整版）',tag:'chest',
+    items:[
+      {name:'肩袖激活',part:'肩',sets:2,reps:'15',normal:'龙门架轻重量面拉（空缆绳）',backup:'俯身Y字上举（空手/1kg哑铃）',tips:'目的不是力竭，是唤醒肩胛骨后侧肌群'},
+      {name:'上斜哑铃卧推',part:'胸',sets:4,reps:'10-12',normal:'上斜哑铃卧推',backup:'',tips:'手肘与身体夹角45度（不要打开成90度），中立握（掌心相对）对圆肩最友好'},
+      {name:'上斜史密斯卧推',part:'胸',sets:4,reps:'10-12',normal:'上斜史密斯卧推 / 上斜杠铃卧推',backup:'上斜哑铃卧推',tips:'手肘与身体夹角45度（不要打开成90度）'},
+      {name:'地板哑铃卧推',part:'胸',sets:3,reps:'10-12',normal:'地板哑铃卧推',backup:'',tips:'肘部落到地板即停，不超伸；对内扣肩膀最友好，平替原平板杠铃卧推'},
+      {name:'蝴蝶机夹胸',part:'胸',sets:3,reps:'12-15',normal:'蝴蝶机夹胸',backup:'平板哑铃飞鸟 / 龙门架绳索夹胸',tips:'手肘保持微屈且角度固定，像抱大树'},
+      {name:'哑铃侧平举',part:'肩',sets:4,reps:'15-20',normal:'哑铃侧平举（站姿）',backup:'哑铃侧平举（身体微微前倾）',tips:'关键动作！做“倒水式”——倾斜哑铃尾端，小拇指朝上，强烈刺激中束'},
+      {name:'面拉（收尾矫正）',part:'肩',sets:3,reps:'15',normal:'龙门架面拉（拉到额头两侧）',backup:'侧卧肩外旋（轻哑铃）',tips:'肘高于腕；周六收尾做，把肩膀“拉回正”'}
+    ]
+  },
+  {
+    id:'tmpl-learn',name:'动作学习+矫正巩固（周日）',tag:'learn',
+    items:[
+      {name:'壶铃摇摆',part:'腿',sets:4,reps:'15次',normal:'壶铃摇摆',backup:'',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力'},
+      {name:'土耳其起立',part:'核心',sets:3,reps:'每侧3次',normal:'徒手或轻哑铃',backup:'',tips:'从躺姿到站姿的完整链条动作，提升肩胛骨稳定性和核心控制力'},
+      {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',normal:'弹力带拉开',backup:'',tips:'双手握弹力带于胸前，水平向两侧拉开，感受肩胛骨向脊柱中间“夹拢”'},
+      {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',normal:'死虫式',backup:'',tips:'仰卧，对侧手脚同时伸展。核心稳定了，上半身不容易塌腰含胸'},
+      {name:'门框胸肌拉伸 + 靠墙天使',part:'拉伸',sets:3,reps:'各3组',normal:'门框胸肌拉伸 + 靠墙天使',backup:'',tips:'把一周积累的胸部紧张彻底释放'}
+    ]
+  }
+];
+
+const NEW_SATURDAY=[
+  {name:'肩袖激活',part:'肩',sets:2,reps:'15',normal:'龙门架轻重量面拉（空缆绳）',backup:'俯身Y字上举（空手/1kg哑铃）',tips:'目的不是力竭，是唤醒肩胛骨后侧肌群'},
+  {name:'上斜哑铃卧推',part:'胸',sets:4,reps:'10-12',normal:'上斜哑铃卧推',backup:'',tips:'手肘与身体夹角45度（不要打开成90度），中立握（掌心相对）对圆肩最友好'},
+  {name:'上斜史密斯卧推',part:'胸',sets:4,reps:'10-12',normal:'上斜史密斯卧推 / 上斜杠铃卧推',backup:'上斜哑铃卧推',tips:'手肘与身体夹角45度（不要打开成90度）'},
+  {name:'地板哑铃卧推',part:'胸',sets:3,reps:'10-12',normal:'地板哑铃卧推',backup:'',tips:'肘部落到地板即停，不超伸；对内扣肩膀最友好，平替原平板杠铃卧推'},
+  {name:'蝴蝶机夹胸',part:'胸',sets:3,reps:'12-15',normal:'蝴蝶机夹胸',backup:'平板哑铃飞鸟 / 龙门架绳索夹胸',tips:'手肘保持微屈且角度固定，像抱大树'},
+  {name:'哑铃侧平举',part:'肩',sets:4,reps:'15-20',normal:'哑铃侧平举（站姿）',backup:'哑铃侧平举（身体微微前倾）',tips:'关键动作！做“倒水式”——倾斜哑铃尾端，小拇指朝上，强烈刺激中束'},
+  {name:'面拉（收尾矫正）',part:'肩',sets:3,reps:'15',normal:'龙门架面拉（拉到额头两侧）',backup:'侧卧肩外旋（轻哑铃）',tips:'肘高于腕；周六收尾做，把肩膀“拉回正”'}
+];
+
+/* 特殊一次性计划：套用到某天但不存到常用模板 */
+const SPECIAL_SUNDAY_VERSION=2;
+const SPECIAL_PLANS=[
+  {
+    id:'special-sun-emergency-fix',name:'周日"紧急矫正"计划（快速改善内扣专用）',tag:'round',
+    items:[
+      {name:'门框胸肌拉伸（用力前倾）',part:'拉伸',sets:3,reps:'45秒',normal:'门框胸肌拉伸（用力前倾）',backup:'',tips:'必须先做！先松解紧张的前侧，后面所有"拉"的动作才能有效把肩胛骨拉回去。'},
+      {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',normal:'弹力带拉开（Pull-Apart）',backup:'',tips:'双手水平拉开弹力带，全程夹紧肩胛骨，直接对抗内扣。'},
+      {name:'龙门架面拉（或俯身W伸展）',part:'肩',sets:4,reps:'20次',normal:'龙门架面拉（或俯身W伸展）',backup:'',tips:'拉到额头两侧，肘高于腕。这是给你的肱骨头"回正"的最强动作。'},
+      {name:'上斜凳胸部支撑哑铃划船（对握）',part:'背',sets:4,reps:'15次',normal:'上斜凳胸部支撑哑铃划船（对握）',backup:'',tips:'趴在凳子上，身体被固定死，完全无法借力含胸，纯靠背部把肩膀往后拽。'},
+      {name:'俯身哑铃反向飞鸟',part:'肩',sets:3,reps:'20次（最轻重量）',normal:'俯身哑铃反向飞鸟',backup:'',tips:'展翅向后打开，挤压肩胛骨中间，越轻越要做标准。'},
+      {name:'地板哑铃卧推（轻重量）',part:'胸',sets:3,reps:'15次',normal:'地板哑铃卧推（轻重量）',backup:'',tips:'因为地板限制了幅度，肩膀压力极小。只做轻重量找感觉，目标不是力竭，是感受胸肌控制。'},
+      {name:'哑铃侧平举（倒水式）',part:'肩',sets:4,reps:'20次',normal:'哑铃侧平举（倒水式）',backup:'',tips:'撑宽肩膀宽度，对冲内扣带来的"缩窄感"。'},
+      {name:'靠墙天使（徒手）',part:'拉伸',sets:3,reps:'15次',normal:'靠墙天使（徒手）',backup:'',tips:'最后一次把肩膀"按"回正常位置。'}
+    ]
+  }
+];
+
+/* 体态问题 → 自动矫正计划 */
+/* phase: 松=松解前侧, 激=激活后侧, 强=强化弱肌, 收=收尾掰正 */
+const POSTURE_ISSUES=[
+  {
+    id:'round_shoulder',name:'圆肩 / 肩膀内扣',
+    kw:['圆肩','内扣','肩膀往前','扣肩','含胸','肩往前','溜肩'],
+    items:[
+      {name:'门框胸肌拉伸（用力前倾）',part:'拉伸',sets:3,reps:'45秒',phase:'松',normal:'门框胸肌拉伸（用力前倾）',tips:'必须先做！先松解紧张的前侧，后面所有"拉"的动作才能把肩胛骨拉回去。'},
+      {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',phase:'激',normal:'弹力带拉开（Pull-Apart）',tips:'双手水平拉开弹力带，全程夹紧肩胛骨，直接对抗内扣。'},
+      {name:'龙门架面拉（或俯身W伸展）',part:'肩',sets:4,reps:'20次',phase:'强',normal:'龙门架面拉（或俯身W伸展）',tips:'拉到额头两侧，肘高于腕。给肱骨头"回正"的最强动作。'},
+      {name:'上斜凳胸部支撑哑铃划船（对握）',part:'背',sets:4,reps:'15次',phase:'强',normal:'上斜凳胸部支撑哑铃划船（对握）',tips:'趴在凳子上身体被固定，纯靠背部把肩膀往后拽。'},
+      {name:'俯身哑铃反向飞鸟',part:'肩',sets:3,reps:'20次（最轻重量）',phase:'强',normal:'俯身哑铃反向飞鸟',tips:'展翅向后打开，挤压肩胛骨中间。'},
+      {name:'哑铃侧平举（倒水式）',part:'肩',sets:4,reps:'20次',phase:'强',normal:'哑铃侧平举（倒水式）',tips:'撑宽肩膀宽度，对冲内扣的缩窄感。'},
+      {name:'靠墙天使（徒手）',part:'拉伸',sets:3,reps:'15次',phase:'收',normal:'靠墙天使（徒手）',tips:'最后一次把肩膀"按"回正常位置。'}
+    ]
+  },
+  {
+    id:'forward_head',name:'头前伸 / 乌龟颈',
+    kw:['头前伸','乌龟颈','脖子前','探颈','脖子往前','低头','头往前'],
+    items:[
+      {name:'门框胸肌拉伸（用力前倾）',part:'拉伸',sets:3,reps:'45秒',phase:'松',normal:'门框胸肌拉伸（用力前倾）',tips:'松解紧张的前侧胸肌，头才容易回到中立位。'},
+      {name:'收下巴（靠墙）',part:'肩',sets:3,reps:'15次',phase:'激',normal:'背靠墙眼睛平视，做"双下巴"后缩动作',tips:'把头部往后收，激活深层颈屈肌。'},
+      {name:'弹力带颈后拉',part:'肩',sets:3,reps:'15次',phase:'激',normal:'弹力带绕颈后，双手向前拉',tips:'强化颈后肌群，把前伸的头"拉"回来。'},
+      {name:'靠墙天使（徒手）',part:'拉伸',sets:3,reps:'15次',phase:'强',normal:'靠墙天使（徒手）',tips:'打开上胸和肩膀，改善头前伸的含胸姿态。'},
+      {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',phase:'强',normal:'死虫式',tips:'核心稳定了，上半身不容易塌腰含胸，间接改善头前伸。'}
+    ]
+  },
+  {
+    id:'kyphosis',name:'驼背 / 上背圆',
+    kw:['驼背','弯腰','上背圆','背驼','上背','弓背'],
+    items:[
+      {name:'靠墙天使（徒手）',part:'拉伸',sets:3,reps:'15次',phase:'强',normal:'靠墙天使（徒手）',tips:'把上背"摊平"贴墙，是改善驼背的招牌动作。'},
+      {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',phase:'激',normal:'弹力带拉开（Pull-Apart）',tips:'夹紧肩胛骨，把上背往后拉。'},
+      {name:'龙门架面拉（或俯身W伸展）',part:'肩',sets:4,reps:'20次',phase:'强',normal:'龙门架面拉（或俯身W伸展）',tips:'肘高于腕，激活下斜方，把圆背"提"起来。'},
+      {name:'上斜凳胸部支撑哑铃划船（对握）',part:'背',sets:4,reps:'15次',phase:'强',normal:'上斜凳胸部支撑哑铃划船（对握）',tips:'强化中下斜方，撑起上背。'},
+      {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',phase:'强',normal:'死虫式',tips:'核心稳定，上半身不易塌腰。'}
+    ]
+  },
+  {
+    id:'apt',name:'骨盆前倾',
+    kw:['骨盆前倾','骨盆','腰前','小腹前挺','腰疼','腰酸痛','前倾'],
+    items:[
+      {name:'髂腰肌拉伸',part:'拉伸',sets:3,reps:'30秒',phase:'松',normal:'弓步前压拉伸大腿前侧',tips:'放松紧张的大腿前侧髂腰肌，骨盆才不被往前拉。'},
+      {name:'猫牛式',part:'核心',sets:2,reps:'10次',phase:'松',normal:'四足跪姿交替拱背塌腰',tips:'松动整个脊柱，特别放松上背。'},
+      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌与腘绳肌，把骨盆往后拉回中立。'},
+      {name:'罗马尼亚硬拉',part:'腿',sets:4,reps:'10-12',phase:'强',normal:'罗马尼亚硬拉',tips:'屈髋为主，强化后侧链。'},
+      {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',phase:'强',normal:'死虫式',tips:'强化腹深肌，稳定骨盆。'}
+    ]
+  },
+  {
+    id:'uneven',name:'高低肩',
+    kw:['高低肩','一高一低','歪肩','肩膀不平','斜肩'],
+    items:[
+      {name:'单臂哑铃侧平举',part:'肩',sets:3,reps:'15次/侧',phase:'强',normal:'低重量单臂侧平举',tips:'针对薄弱侧加强，改善双肩不平衡。'},
+      {name:'靠墙天使（徒手）',part:'拉伸',sets:3,reps:'15次',phase:'强',normal:'靠墙天使（徒手）',tips:'对称打开双肩，校正高低。'},
+      {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',phase:'激',normal:'弹力带拉开（Pull-Apart）',tips:'对称收紧肩胛骨。'},
+      {name:'上斜凳胸部支撑哑铃划船（对握）',part:'背',sets:4,reps:'15次',phase:'强',normal:'上斜凳胸部支撑哑铃划船（对握）',tips:'强化背部，把肩膀往后拉平。'}
+    ]
+  },
+  {
+    id:'knee_hyperext',name:'膝超伸',
+    kw:['膝超伸','膝盖超','锁死','膝盖往后','腿伸过'],
+    items:[
+      {name:'靠墙静蹲',part:'腿',sets:3,reps:'30秒',phase:'激',normal:'背靠墙静蹲',tips:'强化股四头肌，学会控制膝盖不锁死。'},
+      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'强化小腿与脚踝稳定，避免膝盖代偿。'},
+      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，改善腿部力线。'},
+      {name:'弹力带侧向行走',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'弹力带绕膝侧向行走',tips:'强化臀中肌，稳定骨盆膝盖。'}
+    ]
+  },
+  {
+    id:'false_hip',name:'假胯宽',
+    kw:['假胯宽','胯宽','大腿根宽','腿不直','大腿根'],
+    items:[
+      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，视觉上收胯。'},
+      {name:'蚌式开合',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧膝盖开合',tips:'练臀中肌，改善假胯宽。'},
+      {name:'侧卧抬腿',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧上方腿上抬',tips:'强化外侧臀，收窄大腿根。'},
+      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'收紧小腿线条。'}
+    ]
+  },
+  {
+    id:'flat_foot',name:'扁平足 / 足弓塌陷',
+    kw:['扁平足','足弓','脚塌','脚掌','脚弓'],
+    items:[
+      {name:'抓毛巾',part:'腿',sets:3,reps:'15次',phase:'激',normal:'脚底抓毛巾',tips:'激活足底肌群，重建足弓。'},
+      {name:'脚趾抓地',part:'拉伸',sets:3,reps:'20次',phase:'激',normal:'站立脚趾反复抓地',tips:'强化足弓小肌肉。'},
+      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'提踵时用力抓地，强化足弓。'}
+    ]
+  }
+];
+const PHASE_ORDER={'松':0,'激':1,'强':2,'收':3};
+
+let data={actions:[],templates:[],records:{},body:[],posture:{issues:[],note:''}};
+let currentDate=todayStr();
+let calDate=new Date();
+let statsDate=new Date();
+let editingTemplateId=null;
+let pendingQuickItems=[];
+
+function uid(){return Math.random().toString(36).slice(2,9);}
+function $(id){return document.getElementById(id);}
+function deep(o){return JSON.parse(JSON.stringify(o));}
+function fmt(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
+function todayStr(){return fmt(new Date());}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function load(){
+  try{const s=localStorage.getItem(STORE_KEY);if(s){data=JSON.parse(s);}}catch(e){}
+  if(!data.actions||data.actions.length===0){
+    data.actions=deep(DEFAULT_ACTIONS);
+    data.templates=deep(DEFAULT_TEMPLATES);
+    save();
+  }
+  // 兼容旧版 records 数组结构 -> 直接清空（用户刚创建，无损失）
+  if(Array.isArray(data.records)){data.records={};save();}
+  // 兼容旧版 posture 结构
+  if(!data.posture||!Array.isArray(data.posture.issues)){data.posture={issues:[],note:''};save();}
+  // 迁移 v2.1：升级周六胸+肩模板（去掉平板杠铃卧推，改为更护肩、更完整的计划）
+  if(!data._mig||data._mig<1){
+    const t=data.templates.find(x=>x.id==='tmpl-chest-shoulder');
+    if(t){t.items=deep(NEW_SATURDAY);}
+    data._mig=1;save();
+  }
+  // 一次性特殊计划：直接放入 2026-08-23（周日）记录，无需手动套用；若计划有更新，自动覆盖旧版
+  const SPECIAL_DATE='2026-08-23';
+  const sp=SPECIAL_PLANS.find(p=>p.id==='special-sun-emergency-fix');
+  if(sp && (!data.records[SPECIAL_DATE] || data.records[SPECIAL_DATE].special)){
+    data.records[SPECIAL_DATE]={items:sp.items.map(it=>({...deep(it),id:uid(),done:false,tag:sp.tag||judgeTag(it.name)||null})),note:'周日"紧急矫正"计划（快速改善内扣专用）',special:true,version:SPECIAL_SUNDAY_VERSION};
+    save();
+  }
+  // 给旧数据补齐 item.tag（按动作名自动判断，没有就按部位兜底）
+  Object.keys(data.records).forEach(d=>{(data.records[d].items||[]).forEach(r=>{if(!r.tag)r.tag=judgeTag(r.name)||part2tag(r.part)||'other';});});
+  save();
+}
+function save(){localStorage.setItem(STORE_KEY,JSON.stringify(data));}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1700);}
+
+function hasRecord(d){return data.records[d]&&data.records[d].items&&data.records[d].items.length>0;}
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d;}
+function streak(){
+  let n=0;let d=new Date();
+  if(!hasRecord(todayStr()))d.setDate(d.getDate()-1);
+  while(hasRecord(fmt(d))){n++;d.setDate(d.getDate()-1);}
+  return n;
+}
+function getAction(name){return data.actions.find(a=>a.name===name);}
+function ensureAction(name,part){
+  let a=getAction(name);if(a)return a;
+  a={id:uid(),name,part:part||'其他',tips:''};
+  data.actions.push(a);save();return a;
+}
+
+/* ---------- 导航与顶部 ---------- */
+function switchTab(name){
+  const navName=name==='template-edit'?'templates':name;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===navName));
+  document.querySelectorAll('section.view').forEach(s=>s.classList.toggle('show',s.id==='view-'+name));
+  if(name==='today'){renderToday();}
+  if(name==='posture'){renderPosture();}
+  if(name==='templates'){renderTemplates();}
+  if(name==='template-edit'){renderTemplateEdit();}
+  if(name==='calendar'){renderCalendar();}
+  if(name==='stats'){statsDate=new Date();renderStats();}
+  if(name==='body'){renderBody();}
+  renderTop();
+}
+function changeStatsMonth(delta){
+  statsDate.setMonth(statsDate.getMonth()+delta);
+  renderStats();
+}
+function renderTop(){
+  const d=new Date();const w=['日','一','二','三','四','五','六'][d.getDay()];
+  $('topDate').textContent=`${d.getMonth()+1}月${d.getDate()}日 · 星期${w}`;
+  $('topBadge').textContent=`连续打卡 ${streak()} 天`;
+}
+
+/* ---------- 今天 ---------- */
+function changeDate(d){currentDate=d;renderToday();}
+function renderToday(){
+  const isToday=currentDate===todayStr();
+  $('datePicker').value=currentDate;
+  $('dateHint').textContent=isToday?'正在看：今天':`正在看：${currentDate}`;
+  const rec=data.records[currentDate]||{items:[],note:''};
+  const total=rec.items.length;
+  const done=rec.items.filter(r=>r.done).length;
+  const WD=['日','一','二','三','四','五','六'];
+  // 计划总览
+  const po=$('planOverview');
+  if(total===0){
+    const recId=weekdayTemplate();
+    const recT=recId?data.templates.find(t=>t.id===recId):null;
+    po.innerHTML=`<div class="po-empty">
+      <div class="big">今天还没有训练计划</div>
+      <div class="sub">${recT?('今天是周'+WD[new Date(currentDate).getDay()]+'，建议练：'+recT.name):'选个模板套用，或直接加动作'}</div>
+      ${recT?`<button class="btn-primary" onclick="doApplyTemplateById('${recId}')">📋 一键套用「${esc(recT.name)}」</button>`:''}
+    </div>`;
+  }else{
+    const pct=total?Math.round(done/total*100):0;
+    po.innerHTML=`<div class="plan-overview">
+      <div class="po-row">
+        <div><div class="po-day">周${WD[new Date(currentDate).getDay()]} · ${currentDate}</div><div class="po-name">${isToday?'今日训练计划':currentDate+' 训练计划'}</div><div class="po-sub">${total}个动作 · 已完成 ${done} 个</div></div>
+        <div class="po-prog">${pct}%</div>
+      </div>
+      <div class="po-bar"><div class="fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+  $('todayListTitle').textContent=`📝 ${isToday?'今天':'这天'}的训练（${done}/${total}）`;
+  const box=$('todayList');
+  if(total===0){
+    box.innerHTML='<div class="empty">点上面的「一键套用」，或「➕ 加一个动作」开始今天的训练。</div>';
+  }else{
+    box.innerHTML=rec.items.map((r,i)=>{
+      const act=getAction(r.name);
+      const coach=r.tips||r.normal||r.backup||(act&&act.tips);
+      return `<div class="train-item ${r.done?'done':''}">
+        <div class="seq">${i+1}</div>
+        <div class="train-body">
+          <div class="train-name">${esc(r.name)} <span class="tag">${esc(r.part)}</span> <span class="sd-tag ${r.tag||''}">${tagText(r.tag)}</span></div>
+          <div class="train-plan"><b>${r.sets}组 × ${esc(r.reps)}</b>${r.weight?(' · '+r.weight+'kg'):''}</div>
+          ${r.normal?`<div class="train-normal">🏋️ ${esc(r.normal)}</div>`:''}
+          <div class="train-actions">
+            <button class="btn-xs" onclick="toggleCoach(this)">💡 要点</button>
+            <button class="btn-xs" onclick="toggleEdit(this)">✏️ 改</button>
+            <button class="btn-xs" style="color:#c45c5c" onclick="delItem('${r.id}')">删除</button>
+          </div>
+          <div class="coach ${coach?'':'empty'}">
+            ${r.normal?`<div class="coach-row"><b>正常练法</b><br>${esc(r.normal)}</div>`:''}
+            ${r.backup?`<div class="coach-row"><b>应急备选</b><br>${esc(r.backup)}</div>`:''}
+            <div class="coach-row"><b>动作要领</b><br>${esc(r.tips||(act&&act.tips)||'暂无要点')}</div>
+          </div>
+          <div class="edit-area">
+            <div class="row">
+              <div><label>组数</label><input type="number" value="${r.sets}" onchange="updateItem('${r.id}','sets',this.value)"></div>
+              <div><label>次数/时长</label><input value="${esc(r.reps)}" onchange="updateItem('${r.id}','reps',this.value)"></div>
+              <div><label>重量kg</label><input type="number" value="${r.weight||''}" onchange="updateItem('${r.id}','weight',this.value)"></div>
+            </div>
+            <label>正常练法</label><input value="${esc(r.normal||'')}" onchange="updateItem('${r.id}','normal',this.value)">
+            <label>应急备选</label><input value="${esc(r.backup||'')}" onchange="updateItem('${r.id}','backup',this.value)">
+            <label>动作要领 / 矫正提示</label><textarea rows="2" onchange="updateItem('${r.id}','tips',this.value)">${esc(r.tips||'')}</textarea>
+            <label>标签（决定统计页归类，可改）</label>
+            <select onchange="updateItem('${r.id}','tag',this.value)">
+              ${TAGS.map(t=>`<option value="${t.id}" ${r.tag===t.id?'selected':''}>${t.text}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <button class="done-btn" onclick="toggleItem('${r.id}')">${r.done?'✅<br>完成':'完成'}</button>
+      </div>`;
+    }).join('');
+    box.innerHTML+=`<div style="margin-top:6px;"><button class="btn-primary" onclick="markAllDone(true)">✅ 标记今天全部完成</button></div>`;
+  }
+  $('dayNote').value=rec.note||'';
+  const sel=$('applyTemplateSelect');sel.innerHTML=data.templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  const spe=$('specialPlanSelect');spe.innerHTML=SPECIAL_PLANS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  fillDatalist('quickActionList');fillDatalist('addToTmplList');
+}
+function weekdayTemplate(){
+  const w=new Date(currentDate).getDay();
+  const map={2:'tmpl-back',4:'tmpl-legs',6:'tmpl-chest-shoulder',0:'tmpl-learn'};
+  return map[w]||null;
+}
+function markAllDone(v){
+  const rec=data.records[currentDate];if(!rec||!rec.items.length)return;
+  rec.items.forEach(r=>r.done=v);save();renderToday();renderStats();
+  toast(v?'全部完成，干得漂亮！🎉':'已取消完成');
+}
+function fillDatalist(id){
+  $(id).innerHTML=data.actions.map(a=>`<option value="${esc(a.name)}">${esc(a.part)}</option>`).join('');
+}
+function showApplyPanel(){$('applyPanel').style.display='block';$('addPanel').style.display='none';}
+function showAddPanel(){$('addPanel').style.display='block';$('applyPanel').style.display='none';}
+function applyTemplateCore(tid,dateStr){
+  const t=data.templates.find(x=>x.id===tid);if(!t)return 0;
+  data.records[dateStr]=data.records[dateStr]||{items:[],note:''};
+  let n=0;
+  t.items.forEach(it=>{
+    if(data.records[dateStr].items.find(r=>r.name===it.name))return;
+    const item=deep(it);item.id=uid();item.done=false;item.tag=t.tag||judgeTag(it.name)||null;
+    data.records[dateStr].items.push(item);n++;
+  });
+  return n;
+}
+function doApplyTemplate(){
+  const tid=$('applyTemplateSelect').value;
+  const n=applyTemplateCore(tid,currentDate);
+  save();renderToday();renderStats();
+  if(n>0)toast('已套用，'+n+'个动作加入');else toast('动作都已在当天');
+  $('applyPanel').style.display='none';
+}
+function doApplyTemplateById(tid){
+  const n=applyTemplateCore(tid,currentDate);
+  save();renderToday();renderStats();
+  if(n>0)toast('已套用，'+n+'个动作加入');else toast('动作都已在当天');
+}
+function showSpecialPanel(){
+  $('specialPanel').style.display=$('specialPanel').style.display==='block'?'none':'block';
+  if($('specialPanel').style.display==='block'){
+    $('applyPanel').style.display='none';$('addPanel').style.display='none';
+  }
+}
+function doApplySpecialPlan(){
+  const sid=$('specialPlanSelect').value;
+  const sp=SPECIAL_PLANS.find(x=>x.id===sid);if(!sp)return;
+  data.records[currentDate]=data.records[currentDate]||{items:[],note:''};
+  let n=0;
+  sp.items.forEach(it=>{
+    if(data.records[currentDate].items.find(r=>r.name===it.name))return;
+    const item=deep(it);item.id=uid();item.done=false;item.tag=sp.tag||judgeTag(it.name)||null;
+    data.records[currentDate].items.push(item);n++;
+  });
+  save();renderToday();renderStats();
+  if(n>0)toast('已套用「'+sp.name+'」，'+n+'个动作加入');else toast('动作都已在当天');
+  $('specialPanel').style.display='none';
+}
+
+/* ---------- 体态 ---------- */
+function renderPosture(){
+  const sel=data.posture.issues;
+  $('postureChips').innerHTML=POSTURE_ISSUES.map(p=>`<button class="chip ${sel.includes(p.id)?'on':''}" onclick="togglePostureIssue('${p.id}')">${esc(p.name)}</button>`).join('');
+  $('postureNote').value=data.posture.note||'';
+  $('postureDate').value=todayStr();
+  const plan=getPosturePlan();
+  if(plan.items.length===0){
+    $('posturePlan').innerHTML='<div class="empty">选上面的体态问题（或写下描述点「分析」），这里会自动生成矫正计划预览。</div>';
+    $('postureConfirm').style.display='none';
+  }else{
+    $('posturePlan').innerHTML=plan.items.map((it,i)=>`<div class="train-item" style="padding:12px;margin-bottom:8px;">
+      <div class="seq">${i+1}</div>
+      <div class="train-body">
+        <div class="train-name">${esc(it.name)} <span class="tag">${esc(it.part)}</span><span class="phase-tag phase-${it.phase}">${it.phase}</span></div>
+        <div class="train-plan"><b>${it.sets}组 × ${esc(it.reps)}</b></div>
+        ${it.normal?`<div class="train-normal">🏋️ ${esc(it.normal)}</div>`:''}
+        ${it.tips?`<div class="train-normal" style="color:var(--muted)">💡 ${esc(it.tips)}</div>`:''}
+      </div>
+    </div>`).join('');
+    $('postureConfirm').style.display='block';
+  }
+}
+function togglePostureIssue(id){
+  const i=data.posture.issues.indexOf(id);
+  if(i>=0)data.posture.issues.splice(i,1);else data.posture.issues.push(id);
+  save();renderPosture();
+}
+function quickRoundShoulder(){
+  data.posture.issues=['round_shoulder'];
+  data.posture.note='';
+  save();renderPosture();
+  setTimeout(()=>{$('posturePlan').scrollIntoView({behavior:'smooth',block:'start'});},60);
+  toast('已生成圆肩专项矫正计划，选日期确认即可');
+}
+function analyzePostureText(){
+  const txt=$('postureNote').value.trim();
+  data.posture.note=txt;
+  const low=txt.toLowerCase();
+  const hit=[];
+  POSTURE_ISSUES.forEach(p=>{
+    if(p.kw.some(k=>low.includes(k.toLowerCase())) && !data.posture.issues.includes(p.id)) hit.push(p.id);
+  });
+  if(hit.length){
+    data.posture.issues=data.posture.issues.concat(hit);
+    save();renderPosture();
+    toast('已根据你的描述自动勾选 '+hit.length+' 项');
+  }else{
+    save();renderPosture();
+    toast(txt?('没匹配到预设项，可手动勾选上面的体态问题'):'可以手动勾选上面的体态问题');
+  }
+}
+function getPosturePlan(){
+  const sel=data.posture.issues;
+  if(!sel.length)return {items:[],issues:[]};
+  const map={};const order=[];
+  sel.forEach(issId=>{
+    const iss=POSTURE_ISSUES.find(x=>x.id===issId);if(!iss)return;
+    iss.items.forEach(it=>{if(!map[it.name]){map[it.name]=it;order.push(it.name);}});
+  });
+  const items=order.map(n=>map[n]).sort((a,b)=>(PHASE_ORDER[a.phase]||1)-(PHASE_ORDER[b.phase]||1));
+  const issues=sel.map(id=>POSTURE_ISSUES.find(x=>x.id===id)).filter(Boolean);
+  return {items,issues};
+}
+function fillItemsToDate(items,dateStr,note){
+  data.records[dateStr]=data.records[dateStr]||{items:[],note:''};
+  let n=0;
+  items.forEach(it=>{
+    if(data.records[dateStr].items.find(r=>r.name===it.name))return;
+    const item=deep(it);item.id=uid();item.done=false;item.tag=judgeTag(it.name)||part2tag(it.part)||null;
+    data.records[dateStr].items.push(item);n++;
+  });
+  if(note)data.records[dateStr].note=note;
+  return n;
+}
+function confirmPosturePlan(){
+  const plan=getPosturePlan();
+  if(!plan.items.length){toast('先选至少一个体态问题');return;}
+  const d=$('postureDate').value||todayStr();
+  const names=plan.issues.map(i=>i.name).join('、');
+  const n=fillItemsToDate(plan.items,d,'体态矫正计划（'+names+'）');
+  save();renderCalendar();
+  toast('已填充 '+n+' 个动作到 '+d+' ✅');
+}
+function doAddCustomAction(){
+  const name=$('quickActionName').value.trim();
+  const part=$('quickActionPart').value;
+  const tag=$('quickActionTag').value;
+  if(!name){toast('先写动作名');return;}
+  ensureAction(name,part);
+  data.records[currentDate]=data.records[currentDate]||{items:[],note:''};
+  data.records[currentDate].items.push({id:uid(),name,part,tag,sets:3,reps:'',normal:'',backup:'',tips:'',weight:0,done:false});
+  save();$('quickActionName').value='';renderToday();renderStats();
+  toast('已添加');$('addPanel').style.display='none';
+}
+function toggleCoach(btn){const c=btn.closest('.train-item').querySelector('.coach');c.classList.toggle('open');}
+function toggleEdit(btn){const e=btn.closest('.train-item').querySelector('.edit-area');e.style.display=e.style.display==='block'?'none':'block';}
+function toggleItem(id){
+  const rec=data.records[currentDate];if(!rec)return;
+  const r=rec.items.find(x=>x.id===id);if(r){r.done=!r.done;save();renderToday();renderStats();}
+}
+function updateItem(id,field,val){
+  const rec=data.records[currentDate];if(!rec)return;
+  const r=rec.items.find(x=>x.id===id);if(!r)return;
+  if(field==='sets')r.sets=parseInt(val)||0;
+  else if(field==='weight')r.weight=parseFloat(val)||0;
+  else r[field]=val;
+  save();renderStats();
+}
+function delItem(id){
+  const rec=data.records[currentDate];if(!rec)return;
+  rec.items=rec.items.filter(x=>x.id!==id);save();renderToday();renderStats();
+}
+function saveDayNote(){
+  data.records[currentDate]=data.records[currentDate]||{items:[],note:''};
+  data.records[currentDate].note=$('dayNote').value;save();
+}
+
+/* ---------- 一句话速记 ---------- */
+function fillQuickExample(){
+  $('quickNote').value='练背 高位下拉 引体向上 跑步20分钟';
+  pendingQuickItems=[];$('quickPreview').style.display='none';
+}
+function parseQuickNote(){
+  const txt=$('quickNote').value.trim();
+  if(!txt){toast('先写点什么');return;}
+  pendingQuickItems=parseWorkoutText(txt);
+  renderQuickPreview(pendingQuickItems);
+}
+function renderQuickPreview(items){
+  const box=$('quickPreview');
+  if(!items||!items.length){box.style.display='none';box.innerHTML='';toast('没识别到动作，换种说法试试');return;}
+  box.style.display='block';
+  box.innerHTML=`<div class="card-title" style="margin-bottom:10px;">✅ 识别结果（确认无误再保存，不对可以改）</div>`+
+    items.map((it,i)=>`
+      <div class="train-item" style="padding:12px;margin-bottom:8px;">
+        <div class="train-body">
+          <div class="train-name" style="font-size:15px;">${i+1}. <input id="qn${i}_name" value="${esc(it.name)}" style="width:auto;min-width:110px;font-weight:700;font-size:15px;padding:4px 8px;"></div>
+          <div class="row" style="margin-top:8px;gap:6px;">
+            <div style="flex:1;min-width:56px;"><label style="margin:0 0 2px;font-size:11px;">组数</label><input id="qn${i}_sets" type="number" value="${it.sets}" style="padding:6px 8px;font-size:14px;"></div>
+            <div style="flex:2;min-width:84px;"><label style="margin:0 0 2px;font-size:11px;">次数/时长</label><input id="qn${i}_reps" value="${esc(it.reps)}" style="padding:6px 8px;font-size:14px;"></div>
+            <div style="flex:2;min-width:96px;"><label style="margin:0 0 2px;font-size:11px;">标签</label><select id="qn${i}_tag">${TAGS.map(t=>`<option value="${t.id}" ${t.id===(it.tag||'other')?'selected':''}>${t.text}</option>`).join('')}</select></div>
+          </div>
+        </div>
+      </div>`).join('')+
+    `<div class="row" style="margin-top:4px;">
+       <button class="btn-primary" style="flex:1" onclick="saveQuickItems()">💾 保存到 ${esc(currentDate)}</button>
+       <button class="btn-secondary" style="flex:1" onclick="cancelQuick()">✏️ 重新写</button>
+     </div>`;
+}
+function saveQuickItems(){
+  if(!pendingQuickItems||!pendingQuickItems.length)return;
+  data.records[currentDate]=data.records[currentDate]||{items:[],note:''};
+  let n=0,skip=0;
+  pendingQuickItems.forEach((it,i)=>{
+    const name=$('qn'+i+'_name').value.trim();
+    const sets=parseInt($('qn'+i+'_sets').value)||4;
+    const reps=$('qn'+i+'_reps').value.trim()||'12个';
+    const tag=$('qn'+i+'_tag').value;
+    if(!name)return;
+    if(data.records[currentDate].items.find(r=>r.name===name)){skip++;return;}
+    ensureAction(name,tag2part(tag));
+    data.records[currentDate].items.push({id:uid(),name,part:tag2part(tag),tag,sets,reps,normal:'',backup:'',tips:'',weight:0,done:false});
+    n++;
+  });
+  save();
+  $('quickNote').value='';pendingQuickItems=[];$('quickPreview').style.display='none';
+  renderToday();renderStats();
+  toast(n>0?('已保存 '+n+' 个动作到 '+currentDate+(skip?('，'+skip+'个已存在跳过'):'')):'这些动作当天都已存在');
+}
+function cancelQuick(){
+  pendingQuickItems=[];$('quickPreview').style.display='none';
+}
+
+/* ---------- 模板 ---------- */
+function renderTemplates(){
+  const box=$('templateList');
+  box.innerHTML=data.templates.map(t=>{
+    const names=t.items.slice(0,4).map(i=>`<span class="pill">${esc(i.name)}</span>`).join('');
+    return `<div class="tmpl-card">
+      <div class="tmpl-name">${esc(t.name)}</div>
+      <div class="tmpl-meta">${t.items.length}个动作 · 点击编辑可修改母版</div>
+      <div class="tmpl-pills">${names}${t.items.length>4?'<span class="pill">…</span>':''}</div>
+      <div class="row">
+        <button class="btn-secondary" style="flex:1;" onclick="openTemplateEdit('${t.id}')">✏️ 编辑母版</button>
+        <button class="btn-primary" style="flex:1;" onclick="applyTemplateToToday('${t.id}')">套用到今天</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function applyTemplateToToday(tid){
+  const t=data.templates.find(x=>x.id===tid);if(!t)return;
+  currentDate=todayStr();
+  data.records[currentDate]=data.records[currentDate]||{items:[],note:''};
+  let n=0;
+  t.items.forEach(it=>{
+    if(data.records[currentDate].items.find(r=>r.name===it.name))return;
+    const item=deep(it);item.id=uid();item.done=false;item.tag=t.tag||judgeTag(it.name)||null;
+    data.records[currentDate].items.push(item);n++;
+  });
+  save();renderToday();renderStats();switchTab('today');
+  toast(`已套用「${t.name}」到今天，共${n}个动作`);
+}
+function createTemplate(){
+  const name=prompt('给新模板起个名字');if(!name)return;
+  data.templates.push({id:uid(),name,items:[]});
+  save();renderTemplates();
+}
+function openTemplateEdit(id){editingTemplateId=id;switchTab('template-edit');}
+function backToTemplates(){editingTemplateId=null;switchTab('templates');}
+function renderTemplateEdit(){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return backToTemplates();
+  $('editTmplName').value=t.name;
+  const box=$('editTmplItems');
+  box.innerHTML=t.items.map((it,i)=>`<div class="train-item">
+    <div class="train-name">${i+1}. ${esc(it.name)} <span class="tag">${esc(it.part)}</span></div>
+    <div class="edit-area" style="display:block;border:none;padding:8px 0;background:transparent;">
+      <div class="row">
+        <div style="flex:2;min-width:120px;"><label>动作名</label><input value="${esc(it.name)}" onchange="updTmplItem(${i},'name',this.value)"></div>
+        <div style="flex:1;min-width:70px;"><label>部位</label>
+          <select onchange="updTmplItem(${i},'part',this.value)">${PARTS.map(p=>`<option ${p===it.part?'selected':''}>${p}</option>`).join('')}</select>
+        </div>
+        <div style="flex:1;min-width:60px;"><label>组数</label><input type="number" value="${it.sets}" onchange="updTmplItem(${i},'sets',this.value)"></div>
+        <div style="flex:1;min-width:80px;"><label>次数</label><input value="${esc(it.reps)}" onchange="updTmplItem(${i},'reps',this.value)"></div>
+      </div>
+      <label>正常练法</label><input value="${esc(it.normal||'')}" onchange="updTmplItem(${i},'normal',this.value)">
+      <label>应急备选</label><input value="${esc(it.backup||'')}" onchange="updTmplItem(${i},'backup',this.value)">
+      <label>动作要领</label><textarea rows="2" onchange="updTmplItem(${i},'tips',this.value)">${esc(it.tips||'')}</textarea>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn-xs" ${i===0?'disabled':''} onclick="moveTmplItem(${i},-1)">↑上移</button>
+        <button class="btn-xs" ${i===t.items.length-1?'disabled':''} onclick="moveTmplItem(${i},1)">↓下移</button>
+        <button class="btn-xs" style="color:#c45c5c" onclick="delTmplItem(${i})">删除此动作</button>
+      </div>
+    </div>
+  </div>`).join('');
+  fillDatalist('addToTmplList');
+}
+function updTmplItem(i,field,val){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
+  if(field==='sets')t.items[i].sets=parseInt(val)||0;
+  else t.items[i][field]=val;
+  save();
+}
+function moveTmplItem(i,dir){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
+  const j=i+dir;if(j<0||j>=t.items.length)return;
+  [t.items[i],t.items[j]]=[t.items[j],t.items[i]];save();renderTemplateEdit();
+}
+function delTmplItem(i){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
+  t.items.splice(i,1);save();renderTemplateEdit();
+}
+function doAddToTemplate(){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
+  const name=$('addToTmplName').value.trim();if(!name){toast('先写动作名');return;}
+  const part=$('addToTmplPart').value||'背';
+  const tag=judgeTag(name)||part2tag(part);
+  ensureAction(name,part);
+  t.items.push({name,part,tag,sets:3,reps:'',normal:'',backup:'',tips:''});save();
+  $('addToTmplName').value='';renderTemplateEdit();
+}
+function saveTemplateEdit(){
+  const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
+  const name=$('editTmplName').value.trim();if(name)t.name=name;
+  save();toast('模板已保存');backToTemplates();
+}
+
+/* ---------- 日历 ---------- */
+function changeMonth(dir){
+  calDate.setMonth(calDate.getMonth()+dir);
+  renderCalendar();
+}
+function renderCalendar(){
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  $('calMonth').textContent=`${y}年${m+1}月`;
+  const first=new Date(y,m,1);const start=(first.getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  let html='';
+  for(let i=0;i<start;i++)html+='<div class="d"></div>';
+  const tStr=todayStr();
+  for(let i=1;i<=days;i++){
+    const ds=fmt(new Date(y,m,i));
+    const cls='d'+(hasRecord(ds)?' has':'')+(ds===tStr?' today':'');
+    html+=`<div class="${cls}" onclick="openDay('${ds}')">${i}</div>`;
+  }
+  $('cal').innerHTML=html;
+}
+function openDay(d){currentDate=d;switchTab('today');}
+
+/* ---------- 统计 ---------- */
+function renderStats(){
+  const y=statsDate.getFullYear(),m=statsDate.getMonth();
+  $('statsMonth').textContent=`${y}年${m+1}月`;
+  const first=new Date(y,m,1);const start=(first.getDay()+6)%7;
+  const days=new Date(y,m+1,0).getDate();
+  const tStr=todayStr();
+  let html='';
+  for(let i=0;i<start;i++)html+='<div class="sd empty"></div>';
+  let completedDays=0,monthDone=0,monthTotal=0;
+  for(let i=1;i<=days;i++){
+    const ds=fmt(new Date(y,m,i));
+    const rec=data.records[ds];
+    const has=hasRecord(ds);
+    // 只有「当天动作全部完成」才算完成日，才在统计页显示
+    const allDone=has&&rec.items.length>0&&rec.items.every(x=>x.done);
+    const cls='sd'+(has?'':' empty')+(ds===tStr?' today':'')+(allDone?' done-day':'');
+    const tags=allDone?getDayTags(rec):[];
+    if(allDone){completedDays++;monthTotal+=rec.items.length;monthDone+=rec.items.filter(x=>x.done).length;}
+    html+=`<div class="${cls}" ${allDone?`onclick="openDay('${ds}')"`:''}>
+      <span class="sd-num">${i}</span>
+      ${tags.length?`<div class="sd-tags">${tags.map(t=>`<div class="sd-tag ${t.cls}">${esc(t.text)}</div>`).join('')}</div>`:''}
+    </div>`;
+  }
+  $('statsCal').innerHTML=html;
+  // 图例
+  $('statsLegend').innerHTML=TAGS.filter(t=>t.id!=='other').map(t=>`<div class="sd-tag ${t.id}">${t.text}</div>`).join('');
+  // 月度汇总（只统计全部完成的训练日，不显示未完成的）
+  $('statsSummary').innerHTML=[
+    `<div class="sum-pill">本月完成训练 ${completedDays} 天</div>`,
+    `<div class="sum-pill">累计完成动作 ${monthDone} 个</div>`
+  ].join('');
+}
+
+/* ---------- 身体 ---------- */
+function renderBody(){
+  $('bDate').value=todayStr();
+  const sorted=[...data.body].filter(r=>r.weight>0).sort((a,b)=>a.date<b.date?-1:1);
+  const latest=[...data.body].filter(r=>r.weight>0).sort((a,b)=>a.date<b.date?1:-1)[0];
+  let txt='';
+  if(latest){
+    const prev=sorted.filter(r=>r.date<latest.date);
+    const diff=prev.length?latest.weight-prev[prev.length-1].weight:0;
+    txt=`最新（${latest.date}）：体重 <b>${latest.weight}kg</b>`;
+    if(prev.length)txt+=` 较上次 <b style="color:${diff<=0?'var(--good)':'var(--warn)'}">${diff>0?'+':''}${diff.toFixed(1)}kg</b>`;
+  }else txt='还没有体重数据';
+  $('bodyLatest').innerHTML=txt;
+  const chart=$('weightChart');
+  if(sorted.length<2){chart.innerHTML='<div class="empty">至少记录2天体重就能看到曲线</div>';return;}
+  const W=320,H=140,p=24;
+  const ws=sorted.map(r=>r.weight),mn=Math.min(...ws),mx=Math.max(...ws),rg=mx-mn||1;
+  const pts=sorted.map((r,i)=>{
+    const x=p+(W-2*p)*(i/(sorted.length-1));
+    const y=H-p-(H-2*p)*((r.weight-mn)/rg);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const dots=sorted.map((r,i)=>{
+    const x=p+(W-2*p)*(i/(sorted.length-1));
+    const y=H-p-(H-2*p)*((r.weight-mn)/rg);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#4A3B4A"/>`;
+  }).join('');
+  chart.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
+    <polyline points="${pts}" fill="none" stroke="#4A3B4A" stroke-width="3" stroke-linejoin="round"/>
+    ${dots}
+    <text x="${p}" y="${H-4}" font-size="10" fill="#8C8078">${sorted[0].date.slice(5)}</text>
+    <text x="${W-p}" y="${H-4}" font-size="10" fill="#8C8078" text-anchor="end">${sorted[sorted.length-1].date.slice(5)}</text>
+  </svg>`;
+}
+function addBody(e){
+  e.preventDefault();
+  const date=$('bDate').value||todayStr();
+  const weight=parseFloat($('bWeight').value)||0;
+  const waist=parseFloat($('bWaist').value)||0;
+  if(weight<=0){toast('体重要大于0');return false;}
+  const ex=data.body.find(r=>r.date===date);
+  if(ex){ex.weight=weight;if(waist)ex.waist=waist;}
+  else data.body.push({date,weight,waist});
+  save();$('bWeight').value='';$('bWaist').value='';renderBody();toast('已记录');
+  return false;
+}
+
+/* ---------- 备份 ---------- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='健身工作台备份_'+todayStr()+'.json';
+  a.click();toast('备份已下载');
+}
+function importData(){$('fileInput').click();}
+function doImport(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(d&&d.records){data=d;save();renderAll();toast('恢复成功');}else toast('文件格式不对');}catch(err){toast('读不了这个文件');}};
+  r.readAsText(f);e.target.value='';
+}
+
+function renderAll(){renderTop();renderToday();renderPosture();renderTemplates();renderCalendar();renderStats();renderBody();}
+
+/* 判断一天的主要训练类型标签 */
+function getDayTags(rec){
+  if(!rec||!rec.items||!rec.items.length)return[];
+  // 直接读每个动作的标签，去重即可；不显示「混合」
+  const seen={};const out=[];
+  rec.items.forEach(r=>{
+    const id=r.tag||judgeTag(r.name)||part2tag(r.part)||'other';
+    if(!seen[id]){seen[id]=true;const t=TAGS.find(x=>x.id===id);if(t)out.push({cls:t.id,text:t.text});}
+  });
+  return out.slice(0,4);
+}
+
+load();renderAll();
+</script>
+</body>
+</html>
