@@ -139,7 +139,7 @@
   .stats-cal .sd-tags{display:flex;flex-direction:column;gap:2px;margin-top:auto;}
   .sd-tag{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sd-tag.back{background:#D6EAD6;color:#3A6B3A;}      /* 背部训练 */
-  .sd-tag.leg{background:#FCE4D6;color:#9A5A3A;}       /* 臀腿训练 */
+  .sd-tag.leg{background:#FCE4D6;color:#9A5A3A;}       /* 臀训练 */
   .sd-tag.chest{background:#F8D7DA;color:#8A3A42;}     /* 胸+肩训练 */
   .sd-tag.learn{background:#D1ECF1;color:#2A5A6A;}     /* 动作学习/矫正 */
   .sd-tag.round{background:#E2D4F0;color:#5A3A7A;}     /* 圆肩专项 */
@@ -198,7 +198,7 @@
       </div>
       <div class="card">
         <div class="card-title">🎙️ 一句话速记</div>
-        <div class="note" style="margin-bottom:10px;">用大白话写今天练了啥，比如：<b>练背 高位下拉 引体向上</b> 或 <b>练背高位下拉4组 引体向上 跑步20分钟</b>。没写组数默认 4组12个，前面带的「练背/练腿/有氧」会自动变成标签。</div>
+        <div class="note" style="margin-bottom:10px;">用大白话写今天练了啥，比如：<b>练背 高位下拉 引体向上</b> 或 <b>练背高位下拉4组 引体向上 跑步20分钟</b>。没写组数默认 4组12个，前面带的「练背/练臀/有氧」会自动变成标签。</div>
         <textarea id="quickNote" rows="3" placeholder="例如：练背 高位下拉 引体向上 跑步20分钟"></textarea>
         <div class="row" style="margin-top:8px;">
           <button class="btn-primary" style="flex:1" onclick="parseQuickNote()">🔍 识别预览</button>
@@ -222,10 +222,10 @@
           <input id="quickActionName" list="quickActionList" placeholder="例如：哑铃弯举" autocomplete="off" oninput="autoTag('quickActionName','quickActionTag')">
           <datalist id="quickActionList"></datalist>
           <label>部位</label>
-          <select id="quickActionPart"><option>背</option><option>胸</option><option>肩</option><option>腿</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
+          <select id="quickActionPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
           <select id="quickActionTag">
-            <option value="back">练背</option><option value="leg">练腿</option><option value="chest">胸+肩</option>
+            <option value="back">练背</option><option value="leg">练臀</option><option value="chest">胸+肩</option>
             <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
           </select>
           <button class="btn-primary" style="margin-top:8px;" onclick="doAddCustomAction()">添加到当天</button>
@@ -293,10 +293,10 @@
           <input id="addToTmplName" list="addToTmplList" placeholder="从动作库选或输入新动作" autocomplete="off" oninput="autoTag('addToTmplName','addToTmplTag')">
           <datalist id="addToTmplList"></datalist>
           <label>部位</label>
-          <select id="addToTmplPart"><option>背</option><option>胸</option><option>肩</option><option>腿</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
+          <select id="addToTmplPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
           <select id="addToTmplTag">
-            <option value="back">练背</option><option value="leg">练腿</option><option value="chest">胸+肩</option>
+            <option value="back">练背</option><option value="leg">练臀</option><option value="chest">胸+肩</option>
             <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
           </select>
           <button class="btn-secondary" style="margin-top:8px;width:100%;" onclick="doAddToTemplate()">加入此模板</button>
@@ -366,16 +366,16 @@
 
 <script>
 const STORE_KEY='fitness_workbench_v2';
-const PARTS=['背','胸','肩','腿','手臂','核心','有氧','拉伸'];
+const PARTS=['背','胸','肩','臀','手臂','核心','有氧','拉伸'];
 
 /* 训练标签体系（统计页按这个归类，可自动判断） */
 const TAGS=[
-  {id:'back',text:'练背'},{id:'leg',text:'练腿'},{id:'chest',text:'胸+肩'},
+  {id:'back',text:'练背'},{id:'leg',text:'练臀'},{id:'chest',text:'胸+肩'},
   {id:'cardio',text:'有氧'},{id:'learn',text:'动作学习'},{id:'round',text:'圆肩专项'},{id:'other',text:'其他'}
 ];
 function tagText(id){const t=TAGS.find(x=>x.id===id);return t?t.text:(id||'其他');}
 function part2tag(p){
-  const m={'背':'back','腿':'leg','胸':'chest','肩':'chest','手臂':'other','核心':'other','有氧':'cardio','拉伸':'round'};
+  const m={'背':'back','臀':'leg','胸':'chest','肩':'chest','手臂':'other','核心':'other','有氧':'cardio','拉伸':'round'};
   return m[p]||'other';
 }
 /* 输入动作名，自动判断属于哪个标签 */
@@ -399,7 +399,7 @@ function autoTag(nameId,selId){const j=judgeTag($(nameId).value);if(j)$(selId).v
 /* 标签关键词：写在动作前面（或跟动作连写），自动变成该天动作的标签 */
 const TAG_KEYWORDS=[
   {kw:['练背','背部','背'],tag:'back'},
-  {kw:['练腿','腿部','臀腿','腿'],tag:'leg'},
+  {kw:['练臀','练腿','臀部','臀腿','臀','腿'],tag:'leg'},
   {kw:['练胸','胸部','胸','胸肩','练肩','肩'],tag:'chest'},
   {kw:['有氧','心肺','练有氧'],tag:'cardio'},
   {kw:['圆肩','内扣','矫正'],tag:'round'},
@@ -409,7 +409,7 @@ const TAG_KEYWORDS=[
 ];
 const ALL_KW=TAG_KEYWORDS.reduce((a,t)=>a.concat(t.kw),[]);
 function tag2part(tag){
-  const m={'back':'背','leg':'腿','chest':'胸','cardio':'有氧','learn':'核心','round':'拉伸','other':'其他'};
+  const m={'back':'背','leg':'臀','chest':'胸','cardio':'有氧','learn':'核心','round':'拉伸','other':'其他'};
   return m[tag]||'其他';
 }
 /* 从一段文字里抓「组数」和「次数/时长」 */
@@ -483,15 +483,15 @@ const DEFAULT_ACTIONS=[
   {name:'面拉（收尾矫正）',part:'肩',tips:'龙门架面拉拉到额头两侧，肘高于腕；把肩膀拉回正。'},
   {name:'侧卧肩外旋',part:'背',tips:'轻哑铃，给肱骨头“回正”的关键。'},
   {name:'俯身W伸展',part:'背',tips:'徒手，给肱骨头“回正”的关键。'},
-  {name:'杠铃深蹲',part:'腿',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
-  {name:'哈克深蹲',part:'腿',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
-  {name:'罗马尼亚硬拉',part:'腿',tips:'屈髋为主，感受腘绳肌拉伸。'},
-  {name:'直腿硬拉',part:'腿',tips:'屈髋为主，感受腘绳肌拉伸。'},
-  {name:'倒蹬机（腿举）',part:'腿',tips:'稳定控制，下落时大腿不要贴胸。'},
-  {name:'坐姿腿弯举',part:'腿',tips:'练股二头肌，强化膝盖稳定性。'},
-  {name:'俯身腿弯举',part:'腿',tips:'练股二头肌，强化膝盖稳定性。'},
-  {name:'站姿提踵',part:'腿',tips:'练小腿，收尾。'},
-  {name:'坐姿提踵',part:'腿',tips:'练小腿，收尾。'},
+  {name:'杠铃深蹲',part:'臀',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
+  {name:'哈克深蹲',part:'臀',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致。'},
+  {name:'罗马尼亚硬拉',part:'臀',tips:'屈髋为主，感受腘绳肌拉伸。'},
+  {name:'直腿硬拉',part:'臀',tips:'屈髋为主，感受腘绳肌拉伸。'},
+  {name:'倒蹬机（腿举）',part:'臀',tips:'稳定控制，下落时大腿不要贴胸。'},
+  {name:'坐姿腿弯举',part:'臀',tips:'练股二头肌，强化膝盖稳定性。'},
+  {name:'俯身腿弯举',part:'臀',tips:'练股二头肌，强化膝盖稳定性。'},
+  {name:'站姿提踵',part:'臀',tips:'练小腿，收尾。'},
+  {name:'坐姿提踵',part:'臀',tips:'练小腿，收尾。'},
   {name:'肩袖激活',part:'肩',tips:'龙门架轻重量面拉（空缆绳）或俯身Y字上举。目的不是力竭，是唤醒肩胛骨后侧肌群。'},
   {name:'俯身Y字上举',part:'肩',tips:'空手/1kg哑铃，目的不是力竭，是唤醒肩胛骨后侧肌群。'},
   {name:'上斜史密斯卧推',part:'胸',tips:'手肘与身体夹角45度（不要打开成90度）。'},
@@ -504,7 +504,7 @@ const DEFAULT_ACTIONS=[
   {name:'平板哑铃飞鸟',part:'胸',tips:'手肘保持微屈且角度固定，像抱大树。'},
   {name:'龙门架绳索夹胸',part:'胸',tips:'手肘保持微屈且角度固定，像抱大树。'},
   {name:'哑铃侧平举',part:'肩',tips:'做“倒水式”——倾斜哑铃尾端，小拇指朝上，强烈刺激中束。'},
-  {name:'壶铃摇摆',part:'腿',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力。'},
+  {name:'壶铃摇摆',part:'臀',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力。'},
   {name:'土耳其起立',part:'核心',tips:'入门版，徒手或轻哑铃。从躺姿到站姿的完整链条动作，提升肩胛骨稳定性和核心控制力。'},
   {name:'弹力带拉开（Pull-Apart）',part:'背',tips:'双手握弹力带于胸前，水平向两侧拉开，感受肩胛骨向脊柱中间“夹拢”。'},
   {name:'死虫式',part:'核心',tips:'仰卧，对侧手脚同时伸展。核心稳定了，上半身不容易塌腰含胸。'},
@@ -520,15 +520,15 @@ const DEFAULT_ACTIONS=[
   {name:'靠墙天使（徒手）',part:'拉伸',tips:'最后一次把肩膀"按"回正常位置。'},
   {name:'收下巴（靠墙）',part:'肩',tips:'背靠墙眼睛平视，做"双下巴"后缩动作，激活深层颈屈肌，把前伸的头收回来。'},
   {name:'弹力带颈后拉',part:'肩',tips:'弹力带绕颈后，双手向前拉，强化颈后肌群，对抗乌龟颈。'},
-  {name:'臀桥',part:'腿',tips:'仰卧屈膝抬臀，强化臀肌与腘绳肌，改善骨盆前倾。'},
+  {name:'臀桥',part:'臀',tips:'仰卧屈膝抬臀，强化臀肌与腘绳肌，改善骨盆前倾。'},
   {name:'猫牛式',part:'核心',tips:'四足跪姿，交替拱背与塌腰，松动整个脊柱，特别放松上背。'},
   {name:'髂腰肌拉伸',part:'拉伸',tips:'弓步前压，拉伸紧张的大腿前侧髂腰肌，缓解骨盆前倾。'},
   {name:'单臂哑铃侧平举',part:'肩',tips:'低重量单臂做，改善高低肩与单侧薄弱。'},
-  {name:'靠墙静蹲',part:'腿',tips:'背靠墙静蹲，强化股四头肌，稳定膝盖、改善膝超伸。'},
-  {name:'弹力带侧向行走',part:'腿',tips:'弹力带绕膝，侧向行走，强化臀中肌，稳定骨盆。'},
-  {name:'蚌式开合',part:'腿',tips:'侧卧膝盖开合，练臀中肌，改善假胯宽。'},
-  {name:'侧卧抬腿',part:'腿',tips:'侧卧上方腿上抬，强化外侧臀，改善假胯宽。'},
-  {name:'抓毛巾',part:'腿',tips:'脚底抓毛巾，激活足底肌群，改善扁平足。'},
+  {name:'靠墙静蹲',part:'臀',tips:'背靠墙静蹲，强化股四头肌，稳定膝盖、改善膝超伸。'},
+  {name:'弹力带侧向行走',part:'臀',tips:'弹力带绕膝，侧向行走，强化臀中肌，稳定骨盆。'},
+  {name:'蚌式开合',part:'臀',tips:'侧卧膝盖开合，练臀中肌，改善假胯宽。'},
+  {name:'侧卧抬腿',part:'臀',tips:'侧卧上方腿上抬，强化外侧臀，改善假胯宽。'},
+  {name:'抓毛巾',part:'臀',tips:'脚底抓毛巾，激活足底肌群，改善扁平足。'},
   {name:'脚趾抓地',part:'拉伸',tips:'站立脚趾反复抓地，强化足弓。'}
 ];
 
@@ -544,13 +544,13 @@ const DEFAULT_TEMPLATES=[
     ]
   },
   {
-    id:'tmpl-legs',name:'臀腿训练（周四·正常练）',tag:'leg',
+    id:'tmpl-legs',name:'臀训练（周四）',tag:'leg',
     items:[
-      {name:'杠铃深蹲',part:'腿',sets:4,reps:'8-10',normal:'杠铃深蹲',backup:'哈克深蹲',tips:'保持核心收紧，下蹲时膝盖与脚尖方向一致'},
-      {name:'罗马尼亚硬拉',part:'腿',sets:4,reps:'10-12',normal:'罗马尼亚硬拉',backup:'直腿硬拉',tips:'屈髋为主，感受腘绳肌拉伸'},
-      {name:'倒蹬机（腿举）',part:'腿',sets:4,reps:'12-15',normal:'倒蹬机（腿举）',backup:'',tips:'稳定控制，下落时大腿不要贴胸'},
-      {name:'坐姿腿弯举',part:'腿',sets:4,reps:'15',normal:'坐姿腿弯举',backup:'俯身腿弯举',tips:'练股二头肌，强化膝盖稳定性'},
-      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',normal:'站姿提踵',backup:'坐姿提踵',tips:'练小腿，收尾。练完花2分钟做门框胸肌拉伸'}
+      {name:'臀推',part:'臀',sets:4,reps:'12-15',normal:'杠铃臀推 / 自重臀桥',backup:'弹力带侧向行走',tips:'顶端夹紧臀部停顿1秒，感受臀肌收缩'},
+      {name:'罗马尼亚硬拉',part:'臀',sets:4,reps:'10-12',normal:'罗马尼亚硬拉',backup:'直腿硬拉',tips:'屈髋为主，臀部向后推，感受臀和腘绳肌'},
+      {name:'弹力带侧向行走',part:'臀',sets:3,reps:'15/侧',normal:'弹力带侧向行走',backup:'',tips:'弹力带绕膝，侧向行走，强化臀中肌稳定骨盆'},
+      {name:'蚌式开合',part:'臀',sets:3,reps:'15/侧',normal:'蚌式开合',backup:'侧卧抬腿',tips:'侧卧膝盖开合，练臀中肌改善假胯宽'},
+      {name:'臀桥',part:'臀',sets:3,reps:'15-20',normal:'臀桥',backup:'',tips:'仰卧屈膝抬臀，强化臀肌改善骨盆前倾'}
     ]
   },
   {
@@ -568,7 +568,7 @@ const DEFAULT_TEMPLATES=[
   {
     id:'tmpl-learn',name:'动作学习+矫正巩固（周日）',tag:'learn',
     items:[
-      {name:'壶铃摇摆',part:'腿',sets:4,reps:'15次',normal:'壶铃摇摆',backup:'',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力'},
+      {name:'壶铃摇摆',part:'臀',sets:4,reps:'15次',normal:'壶铃摇摆',backup:'',tips:'屈髋发力，臀部向前顶，手臂只是“摆绳”不发力'},
       {name:'土耳其起立',part:'核心',sets:3,reps:'每侧3次',normal:'徒手或轻哑铃',backup:'',tips:'从躺姿到站姿的完整链条动作，提升肩胛骨稳定性和核心控制力'},
       {name:'弹力带拉开（Pull-Apart）',part:'背',sets:3,reps:'20次',normal:'弹力带拉开',backup:'',tips:'双手握弹力带于胸前，水平向两侧拉开，感受肩胛骨向脊柱中间“夹拢”'},
       {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',normal:'死虫式',backup:'',tips:'仰卧，对侧手脚同时伸展。核心稳定了，上半身不容易塌腰含胸'},
@@ -649,8 +649,8 @@ const POSTURE_ISSUES=[
     items:[
       {name:'髂腰肌拉伸',part:'拉伸',sets:3,reps:'30秒',phase:'松',normal:'弓步前压拉伸大腿前侧',tips:'放松紧张的大腿前侧髂腰肌，骨盆才不被往前拉。'},
       {name:'猫牛式',part:'核心',sets:2,reps:'10次',phase:'松',normal:'四足跪姿交替拱背塌腰',tips:'松动整个脊柱，特别放松上背。'},
-      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌与腘绳肌，把骨盆往后拉回中立。'},
-      {name:'罗马尼亚硬拉',part:'腿',sets:4,reps:'10-12',phase:'强',normal:'罗马尼亚硬拉',tips:'屈髋为主，强化后侧链。'},
+      {name:'臀桥',part:'臀',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌与腘绳肌，把骨盆往后拉回中立。'},
+      {name:'罗马尼亚硬拉',part:'臀',sets:4,reps:'10-12',phase:'强',normal:'罗马尼亚硬拉',tips:'屈髋为主，强化后侧链。'},
       {name:'死虫式',part:'核心',sets:3,reps:'12次/侧',phase:'强',normal:'死虫式',tips:'强化腹深肌，稳定骨盆。'}
     ]
   },
@@ -668,29 +668,29 @@ const POSTURE_ISSUES=[
     id:'knee_hyperext',name:'膝超伸',
     kw:['膝超伸','膝盖超','锁死','膝盖往后','腿伸过'],
     items:[
-      {name:'靠墙静蹲',part:'腿',sets:3,reps:'30秒',phase:'激',normal:'背靠墙静蹲',tips:'强化股四头肌，学会控制膝盖不锁死。'},
-      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'强化小腿与脚踝稳定，避免膝盖代偿。'},
-      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，改善腿部力线。'},
-      {name:'弹力带侧向行走',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'弹力带绕膝侧向行走',tips:'强化臀中肌，稳定骨盆膝盖。'}
+      {name:'靠墙静蹲',part:'臀',sets:3,reps:'30秒',phase:'激',normal:'背靠墙静蹲',tips:'强化股四头肌，学会控制膝盖不锁死。'},
+      {name:'站姿提踵',part:'臀',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'强化小腿与脚踝稳定，避免膝盖代偿。'},
+      {name:'臀桥',part:'臀',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，改善腿部力线。'},
+      {name:'弹力带侧向行走',part:'臀',sets:3,reps:'15次/侧',phase:'强',normal:'弹力带绕膝侧向行走',tips:'强化臀中肌，稳定骨盆膝盖。'}
     ]
   },
   {
     id:'false_hip',name:'假胯宽',
     kw:['假胯宽','胯宽','大腿根宽','腿不直','大腿根'],
     items:[
-      {name:'臀桥',part:'腿',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，视觉上收胯。'},
-      {name:'蚌式开合',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧膝盖开合',tips:'练臀中肌，改善假胯宽。'},
-      {name:'侧卧抬腿',part:'腿',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧上方腿上抬',tips:'强化外侧臀，收窄大腿根。'},
-      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'收紧小腿线条。'}
+      {name:'臀桥',part:'臀',sets:3,reps:'15次',phase:'强',normal:'仰卧屈膝抬臀',tips:'强化臀肌，视觉上收胯。'},
+      {name:'蚌式开合',part:'臀',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧膝盖开合',tips:'练臀中肌，改善假胯宽。'},
+      {name:'侧卧抬腿',part:'臀',sets:3,reps:'15次/侧',phase:'强',normal:'侧卧上方腿上抬',tips:'强化外侧臀，收窄大腿根。'},
+      {name:'站姿提踵',part:'臀',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'收紧小腿线条。'}
     ]
   },
   {
     id:'flat_foot',name:'扁平足 / 足弓塌陷',
     kw:['扁平足','足弓','脚塌','脚掌','脚弓'],
     items:[
-      {name:'抓毛巾',part:'腿',sets:3,reps:'15次',phase:'激',normal:'脚底抓毛巾',tips:'激活足底肌群，重建足弓。'},
+      {name:'抓毛巾',part:'臀',sets:3,reps:'15次',phase:'激',normal:'脚底抓毛巾',tips:'激活足底肌群，重建足弓。'},
       {name:'脚趾抓地',part:'拉伸',sets:3,reps:'20次',phase:'激',normal:'站立脚趾反复抓地',tips:'强化足弓小肌肉。'},
-      {name:'站姿提踵',part:'腿',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'提踵时用力抓地，强化足弓。'}
+      {name:'站姿提踵',part:'臀',sets:4,reps:'15-20',phase:'强',normal:'站姿提踵',tips:'提踵时用力抓地，强化足弓。'}
     ]
   }
 ];
