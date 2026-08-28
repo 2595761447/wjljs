@@ -103,14 +103,6 @@
   .tmpl-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
   .pill{background:var(--tag);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--primary);}
 
-  /* 日历 */
-  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-  .cal .d{aspect-ratio:1;border-radius:14px;background:#FAF8F5;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);position:relative;cursor:pointer;}
-  .cal .d.has{background:var(--primary);color:#fff;font-weight:700;}
-  .cal .d.today{outline:2px solid var(--warn);outline-offset:-2px;}
-  .wk{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 4px;}
-
   /* 统计条 */
   .bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px;}
   .bar .name{width:40px;color:var(--muted);flex:0 0 auto;}
@@ -141,8 +133,8 @@
   .stats-cal .sd.empty{background:transparent;border:none;pointer-events:none;}
   .stats-cal .sd.today{border-color:var(--primary);box-shadow:0 0 0 2px rgba(74,59,74,.1);}
   .stats-cal .sd.done-day{background:#F2EAF4;border-color:#C9A9DD;}
-  .stats-cal .sd.part-day{background:#FAF6E4;border-color:#E8DDB8;border-style:dashed;}
-  .stats-cal .sd.part-day .sd-num{opacity:.75;}
+  .stats-cal .sd.part-day{background:#FFF3CD;border-color:#F59E0B;border-style:dashed;}
+  .stats-cal .sd.part-day .sd-num{color:#B45309;font-weight:800;}
   .stats-cal .sd-num{font-size:12px;font-weight:700;color:var(--ink);line-height:1;}
   .stats-cal .sd-tags{display:flex;flex-direction:column;gap:2px;margin-top:auto;}
   .sd-tag{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -316,20 +308,6 @@
       </div>
     </section>
 
-    <!-- 日历 -->
-    <section class="view" id="view-calendar">
-      <div class="card">
-        <div class="cal-head">
-          <button class="btn-ghost" onclick="changeMonth(-1)">◀</button>
-          <div class="card-title" style="margin:0;" id="calMonth"></div>
-          <button class="btn-ghost" onclick="changeMonth(1)">▶</button>
-        </div>
-        <div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
-        <div class="cal" id="cal"></div>
-        <div class="note" style="margin-top:12px;">点任意一天就能查看/编辑那天的训练，也可以直接套用模板。</div>
-      </div>
-    </section>
-
     <!-- 统计 -->
     <section class="view" id="view-stats">
       <div class="card">
@@ -378,7 +356,6 @@
     <button class="nav-btn active" data-tab="today" onclick="switchTab('today')"><span class="icon">🏋️</span><span>今天</span></button>
     <button class="nav-btn" data-tab="posture" onclick="switchTab('posture')"><span class="icon">🩺</span><span>体态</span></button>
     <button class="nav-btn" data-tab="templates" onclick="switchTab('templates')"><span class="icon">📋</span><span>模板</span></button>
-    <button class="nav-btn" data-tab="calendar" onclick="switchTab('calendar')"><span class="icon">📅</span><span>日历</span></button>
     <button class="nav-btn" data-tab="stats" onclick="switchTab('stats')"><span class="icon">📊</span><span>统计</span></button>
     <button class="nav-btn" data-tab="body" onclick="switchTab('body')"><span class="icon">⚖️</span><span>身体</span></button>
   </nav>
@@ -721,7 +698,6 @@ const PHASE_ORDER={'松':0,'激':1,'强':2,'收':3};
 
 let data={actions:[],templates:[],records:{},body:[],posture:{issues:[],note:''}};
 let currentDate=todayStr();
-let calDate=new Date();
 let statsDate=new Date();
 let editingTemplateId=null;
 let pendingQuickItems=[];
@@ -788,7 +764,6 @@ function switchTab(name){
   if(name==='posture'){renderPosture();}
   if(name==='templates'){renderTemplates();}
   if(name==='template-edit'){renderTemplateEdit();}
-  if(name==='calendar'){renderCalendar();}
   if(name==='stats'){statsDate=new Date();renderStats();}
   if(name==='body'){renderBody();}
   renderTop();
@@ -1022,7 +997,7 @@ function confirmPosturePlan(){
   const d=$('postureDate').value||todayStr();
   const names=plan.issues.map(i=>i.name).join('、');
   const n=fillItemsToDate(plan.items,d,'体态矫正计划（'+names+'）');
-  save();renderCalendar();
+  save();
   toast('已填充 '+n+' 个动作到 '+d+' ✅');
 }
 function doAddCustomAction(){
@@ -1208,26 +1183,6 @@ function saveTemplateEdit(){
   save();toast('模板已保存');backToTemplates();
 }
 
-/* ---------- 日历 ---------- */
-function changeMonth(dir){
-  calDate.setMonth(calDate.getMonth()+dir);
-  renderCalendar();
-}
-function renderCalendar(){
-  const y=calDate.getFullYear(),m=calDate.getMonth();
-  $('calMonth').textContent=`${y}年${m+1}月`;
-  const first=new Date(y,m,1);const start=(first.getDay()+6)%7;
-  const days=new Date(y,m+1,0).getDate();
-  let html='';
-  for(let i=0;i<start;i++)html+='<div class="d"></div>';
-  const tStr=todayStr();
-  for(let i=1;i<=days;i++){
-    const ds=fmt(new Date(y,m,i));
-    const cls='d'+(hasRecord(ds)?' has':'')+(ds===tStr?' today':'');
-    html+=`<div class="${cls}" onclick="openDay('${ds}')">${i}</div>`;
-  }
-  $('cal').innerHTML=html;
-}
 function openDay(d){currentDate=d;switchTab('today');}
 
 /* ---------- 统计 ---------- */
@@ -1271,8 +1226,13 @@ function renderStats(){
     </div>`;
   }
   $('statsCal').innerHTML=html;
-  // 图例
-  $('statsLegend').innerHTML=TAGS.filter(t=>t.id!=='other').map(t=>`<div class="sd-tag ${t.id}">${t.text}</div>`).join('');
+  // 状态图例 + 训练类型图例
+  const statusLegend=`<div class="legend" style="margin-bottom:6px;">
+    <div class="sd-tag" style="background:#F2EAF4;color:#7A5E9C;border:1px solid #C9A9DD;">满勤</div>
+    <div class="sd-tag" style="background:#FFF3CD;color:#B45309;border:1px dashed #F59E0B;">部分完成</div>
+    <div class="sd-tag" style="background:transparent;color:var(--muted);border:1px solid var(--line);">未练</div>
+  </div>`;
+  $('statsLegend').innerHTML=statusLegend+TAGS.filter(t=>t.id!=='other').map(t=>`<div class="sd-tag ${t.id}">${t.text}</div>`).join('');
   // 月度汇总（满勤 + 部分完成分开显示，完成动作累计所有真勾的）
   $('statsSummary').innerHTML=[
     `<div class="sum-pill">本月满勤 ${completedDays} 天</div>`,
@@ -1456,7 +1416,7 @@ function openGithubModal(){
 }
 function closeModal(){const root=$('modalRoot');if(root)root.innerHTML='';}
 
-function renderAll(){renderTop();renderToday();renderPosture();renderTemplates();renderCalendar();renderStats();renderBody();}
+function renderAll(){renderTop();renderToday();renderPosture();renderTemplates();renderStats();renderBody();}
 
 /* 判断一天的主要训练类型标签 */
 function getDayTags(rec,doneOnly){
