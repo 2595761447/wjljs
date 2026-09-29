@@ -140,7 +140,10 @@
   .sd-tag{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sd-tag.back{background:#D6EAD6;color:#3A6B3A;}      /* 背部训练 */
   .sd-tag.leg{background:#FCE4D6;color:#9A5A3A;}       /* 臀训练 */
-  .sd-tag.chest{background:#F8D7DA;color:#8A3A42;}     /* 胸+肩训练 */
+  .sd-tag.chest{background:#F8D7DA;color:#8A3A42;}     /* 胸 */
+  .sd-tag.shoulder{background:#FAD9E0;color:#9A3A52;}  /* 肩 */
+  .sd-tag.arm{background:#D4E8F0;color:#2A5A7A;}       /* 手臂 */
+  .sd-tag.core{background:#DCEFD6;color:#3A6B42;}      /* 核心 */
   .sd-tag.learn{background:#D1ECF1;color:#2A5A6A;}     /* 动作学习/矫正 */
   .sd-tag.round{background:#E2D4F0;color:#5A3A7A;}     /* 圆肩专项 */
   .sd-tag.cardio{background:#FFF3CD;color:#856404;}    /* 有氧 */
@@ -198,7 +201,7 @@
       </div>
       <div class="card">
         <div class="card-title">🎙️ 一句话速记</div>
-        <div class="note" style="margin-bottom:10px;">用大白话写今天练了啥，比如：<b>练背 高位下拉 引体向上</b> 或 <b>练背高位下拉4组 引体向上 跑步20分钟</b>。没写组数默认 4组12个，前面带的「练背/练臀/有氧」会自动变成标签。</div>
+        <div class="note" style="margin-bottom:10px;">用大白话写今天练了啥，比如：<b>练背 高位下拉 引体向上</b> 或 <b>练背高位下拉4组 引体向上 跑步20分钟</b>。没写组数默认 4组12个，前面带的「练背/练胸/练肩/练臀/练手臂/练核心/有氧」会自动变成标签。</div>
         <textarea id="quickNote" rows="3" placeholder="例如：练背 高位下拉 引体向上 跑步20分钟"></textarea>
         <div class="row" style="margin-top:8px;">
           <button class="btn-primary" style="flex:1" onclick="parseQuickNote()">🔍 识别预览</button>
@@ -224,8 +227,9 @@
           <label>部位</label>
           <select id="quickActionPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
-          <select id="quickActionTag">
-            <option value="back">练背</option><option value="leg">练臀</option><option value="chest">胸+肩</option>
+          <select id="quickActionTag" onchange="syncPartFromTag('quickActionTag','quickActionPart')">
+            <option value="back">练背</option><option value="chest">胸</option><option value="shoulder">肩</option>
+            <option value="leg">练臀</option><option value="arm">手臂</option><option value="core">核心</option>
             <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
           </select>
           <button class="btn-primary" style="margin-top:8px;" onclick="doAddCustomAction()">添加到当天</button>
@@ -295,8 +299,9 @@
           <label>部位</label>
           <select id="addToTmplPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
-          <select id="addToTmplTag">
-            <option value="back">练背</option><option value="leg">练臀</option><option value="chest">胸+肩</option>
+          <select id="addToTmplTag" onchange="syncPartFromTag('addToTmplTag','addToTmplPart')">
+            <option value="back">练背</option><option value="chest">胸</option><option value="shoulder">肩</option>
+            <option value="leg">练臀</option><option value="arm">手臂</option><option value="core">核心</option>
             <option value="cardio">有氧</option><option value="learn">动作学习</option><option value="round">圆肩专项</option><option value="other">其他</option>
           </select>
           <button class="btn-secondary" style="margin-top:8px;width:100%;" onclick="doAddToTemplate()">加入此模板</button>
@@ -370,12 +375,13 @@ const PARTS=['背','胸','肩','臀','手臂','核心','有氧','拉伸'];
 
 /* 训练标签体系（统计页按这个归类，可自动判断） */
 const TAGS=[
-  {id:'back',text:'练背'},{id:'leg',text:'练臀'},{id:'chest',text:'胸+肩'},
+  {id:'back',text:'练背'},{id:'chest',text:'胸'},{id:'shoulder',text:'肩'},
+  {id:'leg',text:'练臀'},{id:'arm',text:'手臂'},{id:'core',text:'核心'},
   {id:'cardio',text:'有氧'},{id:'learn',text:'动作学习'},{id:'round',text:'圆肩专项'},{id:'other',text:'其他'}
 ];
 function tagText(id){const t=TAGS.find(x=>x.id===id);return t?t.text:(id||'其他');}
 function part2tag(p){
-  const m={'背':'back','臀':'leg','胸':'chest','肩':'chest','手臂':'other','核心':'other','有氧':'cardio','拉伸':'round'};
+  const m={'背':'back','臀':'leg','胸':'chest','肩':'shoulder','手臂':'arm','核心':'core','有氧':'cardio','拉伸':'round'};
   return m[p]||'other';
 }
 /* 输入动作名，自动判断属于哪个标签 */
@@ -383,33 +389,40 @@ function judgeTag(name){
   const n=(name||'').toLowerCase();
   if(/圆肩|内扣|面拉|弹力带拉开|靠墙天使|门框|收下巴|颈后拉|肩外旋|w伸展|反向飞鸟|燕飞|超人/.test(name))return 'round';
   if(/壶铃摇摆|土耳其起立|死虫式|平板支撑|鸟狗|猫牛|臀桥|蚌式/.test(name))return 'learn';
-  if(/跑步|慢跑|跳绳|骑车|单车|椭圆|划船机|爬楼|波比|hiit|快走|游泳|跳操|有氧/.test(n))return 'cardio';
-  if(/卧推|夹胸|飞鸟|侧平举|推胸|上斜|史密斯|哑铃推|前平举|阿诺德|肩推/.test(name))return 'chest';
-  if(/深蹲|硬拉|腿举|倒蹬|腿弯举|提踵|臀推|箭步|哈克|保加利亚/.test(name))return 'leg';
-  if(/下拉|划船|引体|背部|背阔|胸部支撑|高位/.test(name))return 'back';
-  if(/背/.test(name))return 'back';
-  if(/腿|臀/.test(name))return 'leg';
-  if(/胸|肩/.test(name))return 'chest';
-  if(/有氧/.test(name))return 'cardio';
+  if(/跑步|慢跑|跳绳|骑车|单车|椭圆|划船机|爬楼|爬坡|波比|hiit|快走|游泳|跳操|有氧/.test(n))return 'cardio';
+  if(/卧推|夹胸|飞鸟|推胸|上斜|史密斯|哑铃推|阿诺德|胸/.test(name))return 'chest';
+  if(/侧平举|前平举|肩推|肩上推|三角肌|肩/.test(name))return 'shoulder';
+  if(/深蹲|硬拉|腿举|倒蹬|腿弯举|提踵|臀推|箭步|哈克|保加利亚|臀|腿/.test(name))return 'leg';
+  if(/下拉|划船|引体|背部|背阔|胸部支撑|高位|背/.test(name))return 'back';
+  if(/弯举|臂屈伸|二头|三头|手臂/.test(name))return 'arm';
+  if(/卷腹|悬垂举腿|核心|腹部|平板/.test(name))return 'core';
   return null;
 }
 function autoTag(nameId,selId){const j=judgeTag($(nameId).value);if(j)$(selId).value=j;}
+/* 选了标签后，把“部位”自动对上（仅当该部位是下拉里的合法选项，避免其他/动作学习/圆肩把部位变空） */
+function syncPartFromTag(tagId,partId){
+  const p=tag2part($(tagId).value);
+  const sel=$(partId);
+  if([...sel.options].some(o=>o.value===p))sel.value=p;
+}
 
 /* ---------- 一句话速记：大白话解析 ---------- */
 /* 标签关键词：写在动作前面（或跟动作连写），自动变成该天动作的标签 */
 const TAG_KEYWORDS=[
   {kw:['练背','背部','背'],tag:'back'},
+  {kw:['练胸','胸部','胸'],tag:'chest'},
+  {kw:['练肩','肩'],tag:'shoulder'},
   {kw:['练臀','练腿','臀部','臀腿','臀','腿'],tag:'leg'},
-  {kw:['练胸','胸部','胸','胸肩','练肩','肩'],tag:'chest'},
+  {kw:['练手臂','手臂'],tag:'arm'},
+  {kw:['练核心','核心'],tag:'core'},
   {kw:['有氧','心肺','练有氧'],tag:'cardio'},
   {kw:['圆肩','内扣','矫正'],tag:'round'},
   {kw:['动作学习','学习','矫正学习'],tag:'learn'},
-  {kw:['拉伸','练拉伸'],tag:'round'},
-  {kw:['核心','练核心'],tag:'other'}
+  {kw:['拉伸','练拉伸'],tag:'round'}
 ];
 const ALL_KW=TAG_KEYWORDS.reduce((a,t)=>a.concat(t.kw),[]);
 function tag2part(tag){
-  const m={'back':'背','leg':'臀','chest':'胸','cardio':'有氧','learn':'核心','round':'拉伸','other':'其他'};
+  const m={'back':'背','chest':'胸','shoulder':'肩','leg':'臀','arm':'手臂','core':'核心','cardio':'有氧','learn':'核心','round':'拉伸','other':'其他'};
   return m[tag]||'其他';
 }
 /* 从一段文字里抓「组数」和「次数/时长」 */
@@ -1023,6 +1036,7 @@ function updateItem(id,field,val){
   if(field==='sets')r.sets=parseInt(val)||0;
   else if(field==='weight')r.weight=parseFloat(val)||0;
   else r[field]=val;
+  if(field==='tag')r.part=tag2part(val);
   save();renderStats();
 }
 function delItem(id){
