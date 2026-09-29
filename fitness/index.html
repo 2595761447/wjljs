@@ -1350,8 +1350,18 @@ const GitHubSync={
     return res.json();
   },
   async getRemote(){
-    const p='/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath())+'?ref='+(ghCfg.branch||'main');
-    try{return await this.api(p);}catch(e){if(e.status===404)return null;if(e.status===409&&/empty/i.test(e.message||''))return null;throw e;}
+    const mk=(ref)=>'/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath())+(ref?('?ref='+ref):'');
+    const ref=ghCfg.branch||'main';
+    try{return await this.api(mk(ref));}
+    catch(e){
+      // 分支名可能填错（例如仓库默认是 master 却填了 main），退回默认分支再试一次
+      if((e.status===404||e.status===409)&&ref){
+        try{return await this.api(mk(null));}catch(e2){if(e2.status===404||(e2.status===409&&/empty/i.test(e2.message||'')))return null;throw e2;}
+      }
+      if(e.status===404)return null;
+      if(e.status===409&&/empty/i.test(e.message||''))return null;
+      throw e;
+    }
   },
   async pull(){
     if(!this.isOn()||ghBusy)return;
@@ -1381,8 +1391,23 @@ const GitHubSync={
       setGhStatus('已同步 ☁');}
     catch(e){
       if(e.status===409){
-        try{await this.initRepo();await this.push();return;}
-        catch(e2){setGhStatus('推送失败：'+ghErrorTip(e2));return;}
+        // 仓库为空或分支不存在：先尝试初始化仓库（仅当真为空）；若失败（仓库非空/分支已存在），退回带 sha 重试
+        try{
+          await this.initRepo();
+          await this.push();
+          return;
+        }catch(e2){
+          try{
+            const f=await this.getRemote().catch(()=>null);
+            if(f&&f.sha){
+              const content=b64enc(JSON.stringify(data));
+              const body={message:'fitness-workbench sync '+new Date().toISOString(),content,branch:ghCfg.branch||'main',sha:f.sha};
+              await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
+              setGhStatus('已同步 ☁');return;
+            }
+          }catch(e3){}
+          setGhStatus('推送失败：'+ghErrorTip(e2||e));return;
+        }
       }
       setGhStatus('推送失败：'+ghErrorTip(e));
     }
