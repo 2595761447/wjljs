@@ -1327,7 +1327,7 @@ function ghErrorTip(e){
   if(status===401||msg.indexOf('Bad credentials')>=0)return '未授权：Token 无效或已过期，请重新生成 Token（权限勾选 Contents 读写）。';
   if(status===404||msg.indexOf('Not Found')>=0)return '仓库或文件不存在（404）：①仓库填成「用户名/仓库名」②分支名是否正确③仓库已创建？';
   if(status===403||msg.indexOf('Forbidden')>=0)return '禁止访问（403）：Token 权限不足（没勾这个仓库或没开 Contents 读写）。';
-  if(status===409)return '仓库为空或分支不存在（409）。首次请先点「⬆ 上传」。';
+  if(status===409)return 'GitHub 说这个仓库「空或暂时不可用」（409）。可能是：①GitHub 后端临时故障（等半小时再试）②钥匙没权限/已过期（去 GitHub 重新生成一把，勾选这个仓库+Contents读写）。原始回复：'+msg;
   return (status?status+' ':'')+msg;
 }
 const GitHubSync={
@@ -1379,8 +1379,22 @@ const GitHubSync={
       if(f&&f.sha)body.sha=f.sha;
       await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
       setGhStatus('已同步 ☁');}
-    catch(e){setGhStatus('推送失败：'+ghErrorTip(e));}
+    catch(e){
+      if(e.status===409){
+        try{await this.initRepo();await this.push();return;}
+        catch(e2){setGhStatus('推送失败：'+ghErrorTip(e2));return;}
+      }
+      setGhStatus('推送失败：'+ghErrorTip(e));
+    }
     finally{ghBusy=false;}
+  },
+  async initRepo(){
+    const ref=ghCfg.branch||'main';
+    const content=b64enc(JSON.stringify(data));
+    const blob=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/blobs',{method:'POST',body:JSON.stringify({content,encoding:'base64'})});
+    const tree=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/trees',{method:'POST',body:JSON.stringify({tree:[{path:ghPath(),mode:'100644',type:'blob',sha:blob.sha}]})});
+    const commit=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/commits',{method:'POST',body:JSON.stringify({message:'init fitness-data',tree:tree.sha})});
+    await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs',{method:'POST',body:JSON.stringify({ref:'refs/heads/'+ref,sha:commit.sha})});
   },
   maybePush(){if(!this.isOn())return;if(pushTimer)clearTimeout(pushTimer);pushTimer=setTimeout(()=>this.push(),1500);},
   init(){if(this.isOn())this.pull();else setGhStatus('☁ 云端未连接');}
