@@ -176,6 +176,14 @@
   .modal .mrow{display:flex;gap:8px;margin-top:14px;}
   .modal .btn{border:none;background:var(--tag);color:var(--ink);font-weight:700;padding:11px 14px;border-radius:12px;cursor:pointer;flex:1;font-size:14px;}
   .modal .btn.primary{background:var(--primary);color:#fff;}
+/* 动作名自动补全下拉 */
+.ac-box{position:absolute;left:0;right:0;top:100%;z-index:50;margin-top:4px;background:#fff;border:1px solid #e3e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(60,80,120,.16);max-height:264px;overflow:auto;display:none;}
+.ac-box.show{display:block;}
+.ac-item{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid #f0f3f8;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item.active,.ac-item:hover{background:#eef4ff;}
+.ac-name{font-weight:600;color:#2b3a55;}
+.ac-meta{font-size:12px;color:#8a93a6;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -222,8 +230,7 @@
         </div>
         <div id="addPanel" class="quick-box" style="display:none;">
           <label>动作名（可直接打字，或从动作库选）</label>
-          <input id="quickActionName" list="quickActionList" placeholder="例如：哑铃弯举" autocomplete="off" oninput="autoTag('quickActionName','quickActionTag')">
-          <datalist id="quickActionList"></datalist>
+          <input id="quickActionName" placeholder="例如：哑铃弯举（打字会出下拉）" autocomplete="off" oninput="autoTag('quickActionName','quickActionTag','quickActionPart')">
           <label>部位</label>
           <select id="quickActionPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
@@ -294,8 +301,7 @@
         <div id="editTmplItems"></div>
         <div class="quick-box">
           <label>往模板里加动作</label>
-          <input id="addToTmplName" list="addToTmplList" placeholder="从动作库选或输入新动作" autocomplete="off" oninput="autoTag('addToTmplName','addToTmplTag')">
-          <datalist id="addToTmplList"></datalist>
+          <input id="addToTmplName" placeholder="从动作库选或输入新动作（打字会出下拉）" autocomplete="off" oninput="autoTag('addToTmplName','addToTmplTag','addToTmplPart')">
           <label>部位</label>
           <select id="addToTmplPart"><option>背</option><option>胸</option><option>肩</option><option>臀</option><option>手臂</option><option>核心</option><option>有氧</option><option>拉伸</option></select>
           <label>标签（自动判断，可手动改）</label>
@@ -384,26 +390,119 @@ function part2tag(p){
   const m={'背':'back','臀':'leg','胸':'chest','肩':'shoulder','手臂':'arm','核心':'core','有氧':'cardio','拉伸':'round'};
   return m[p]||'other';
 }
-/* 输入动作名，自动判断属于哪个标签 */
-function judgeTag(name){
-  const n=(name||'').toLowerCase();
-  if(/圆肩|内扣|面拉|弹力带拉开|靠墙天使|门框|收下巴|颈后拉|肩外旋|w伸展|反向飞鸟|燕飞|超人/.test(name))return 'round';
-  if(/壶铃摇摆|土耳其起立|死虫式|平板支撑|鸟狗|猫牛|臀桥|蚌式/.test(name))return 'learn';
-  if(/跑步|慢跑|跳绳|骑车|单车|椭圆|划船机|爬楼|爬坡|波比|hiit|快走|游泳|跳操|有氧/.test(n))return 'cardio';
-  if(/卧推|夹胸|飞鸟|推胸|上斜|史密斯|哑铃推|阿诺德|胸/.test(name))return 'chest';
-  if(/侧平举|前平举|肩推|肩上推|三角肌|肩/.test(name))return 'shoulder';
-  if(/深蹲|硬拉|腿举|倒蹬|腿弯举|提踵|臀推|箭步|哈克|保加利亚|臀|腿/.test(name))return 'leg';
-  if(/下拉|划船|引体|背部|背阔|胸部支撑|高位|背/.test(name))return 'back';
-  if(/弯举|臂屈伸|二头|三头|手臂/.test(name))return 'arm';
-  if(/卷腹|悬垂举腿|核心|腹部|平板/.test(name))return 'core';
+/* ---------- 动作库：精准识别的核心 ---------- */
+/* 内置常见有氧/拉伸动作（力量动作来自 data.actions，打开时已载入）。爬楼等有氧在此明确归类 */
+const EXTRA_ACTIONS=[
+  {name:'跑步',part:'有氧',tag:'cardio'},{name:'慢跑',part:'有氧',tag:'cardio'},
+  {name:'跳绳',part:'有氧',tag:'cardio'},{name:'骑车',part:'有氧',tag:'cardio'},
+  {name:'单车',part:'有氧',tag:'cardio'},{name:'动感单车',part:'有氧',tag:'cardio'},
+  {name:'椭圆机',part:'有氧',tag:'cardio'},{name:'划船机',part:'有氧',tag:'cardio'},
+  {name:'爬楼',part:'有氧',tag:'cardio'},{name:'爬楼梯',part:'有氧',tag:'cardio'},
+  {name:'爬坡',part:'有氧',tag:'cardio'},{name:'爬坡走',part:'有氧',tag:'cardio'},
+  {name:'楼梯机',part:'有氧',tag:'cardio'},{name:'登山机',part:'有氧',tag:'cardio'},
+  {name:'跑步机',part:'有氧',tag:'cardio'},{name:'快走',part:'有氧',tag:'cardio'},
+  {name:'走路',part:'有氧',tag:'cardio'},{name:'游泳',part:'有氧',tag:'cardio'},
+  {name:'跳操',part:'有氧',tag:'cardio'},{name:'波比跳',part:'有氧',tag:'cardio'},
+  {name:'hiit',part:'有氧',tag:'cardio'},{name:'有氧',part:'有氧',tag:'cardio'},
+  {name:'泡沫轴',part:'拉伸',tag:'round'},{name:'拉伸',part:'拉伸',tag:'round'}
+];
+/* 动作库 = 用户的力量动作（tag 由部位推导，保证和库里完全一致）+ 内置有氧/拉伸。识别时以它为准，不再瞎猜 */
+let ACTION_LIB=[];
+function buildActionLib(){
+  const lib=[];
+  (data.actions||[]).forEach(a=>{ if(a&&a.name) lib.push({name:a.name,part:a.part||'其他',tag:part2tag(a.part||'其他')}); });
+  EXTRA_ACTIONS.forEach(a=>lib.push(a));
+  ACTION_LIB=lib;
+}
+/* 关键词兜底：只有动作库没匹配上才用，且只用“明确”的词，不再用单字乱猜 */
+function kwFallback(n){
+  const rules=[
+    ['round',['圆肩','内扣','靠墙天使','门框','收下巴','颈后拉','肩外旋','w伸展','燕飞','超人','天使','拉伸']],
+    ['cardio',['跑步','慢跑','跳绳','骑车','单车','椭圆','划船机','爬楼','爬楼梯','爬坡','波比','hiit','快走','游泳','跳操','有氧','动感单车','楼梯机','登山机','跑步机','走路']],
+    ['chest',['卧推','夹胸','飞鸟','推胸','上斜','史密斯','阿诺德']],
+    ['shoulder',['侧平举','前平举','肩推','肩上推','三角肌','肩袖']],
+    ['leg',['深蹲','硬拉','腿举','倒蹬','腿弯举','提踵','臀推','箭步','哈克','保加利亚','臀']],
+    ['back',['高位下拉','引体','划船','下拉','背部','背阔','胸部支撑']],
+    ['arm',['弯举','臂屈伸','二头','三头','手臂']],
+    ['core',['卷腹','悬垂举腿','核心','腹部']]
+  ];
+  for(const [tag,ks] of rules){ if(ks.some(k=>n.includes(k))) return tag; }
   return null;
 }
-function autoTag(nameId,selId){const j=judgeTag($(nameId).value);if(j)$(selId).value=j;}
+/* 输入动作名，精准判断标签：先匹配动作库（按最长命中），再走关键词兜底 */
+function judgeTag(name){
+  const n=(name||'').trim().toLowerCase();
+  if(!n)return null;
+  let best=null,bestLen=0;
+  for(const a of ACTION_LIB){
+    const nm=a.name.toLowerCase();
+    if(nm===n){best=a;bestLen=999;break;}
+    if(n.length>=2 && nm.includes(n) && nm.length>bestLen){best=a;bestLen=nm.length;}
+    else if(nm.length>=3 && n.includes(nm) && nm.length>bestLen){best=a;bestLen=nm.length;}
+  }
+  if(best)return best.tag;
+  return kwFallback(n);
+}
+function autoTag(nameId,tagId,partId){
+  const j=judgeTag($(nameId).value);
+  if(j){ $(tagId).value=j; if(partId) syncPartFromTag(tagId,partId); }
+}
 /* 选了标签后，把“部位”自动对上（仅当该部位是下拉里的合法选项，避免其他/动作学习/圆肩把部位变空） */
 function syncPartFromTag(tagId,partId){
   const p=tag2part($(tagId).value);
   const sel=$(partId);
   if([...sel.options].some(o=>o.value===p))sel.value=p;
+}
+/* ---------- 动作名自动补全：打字出下拉，点一下自动填好部位+标签 ---------- */
+function setupAutocomplete(inputId,partId,tagId){
+  buildActionLib();
+  const inp=$(inputId); if(!inp) return;
+  inp._acPart=partId; inp._acTag=tagId;
+  if(inp._acReady) return; inp._acReady=true;
+  if(!inp._acWrap){
+    const wrap=document.createElement('div'); wrap.style.position='relative'; wrap.style.marginBottom='2px';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    inp._acWrap=wrap;
+  }
+  const box=document.createElement('div'); box.className='ac-box';
+  inp._acWrap.appendChild(box);
+  inp._acBox=box; let active=0;
+  function render(q){
+    q=(q||'').trim().toLowerCase();
+    if(!q){box.classList.remove('show');return;}
+    const seen={},uniq=[];
+    for(const a of ACTION_LIB){
+      const nm=a.name.toLowerCase();
+      if(!nm.includes(q))continue;
+      if(seen[a.name])continue; seen[a.name]=1; uniq.push(a);
+      if(uniq.length>=40)break;
+    }
+    uniq.sort((x,y)=>x.name.length-y.name.length);
+    const list=uniq.slice(0,8);
+    if(!list.length){box.classList.remove('show');return;}
+    box.innerHTML=list.map((a,i)=>`<div class="ac-item${i===0?' active':''}" data-i="${i}" data-name="${esc(a.name)}" data-part="${esc(a.part)}" data-tag="${esc(a.tag)}"><span class="ac-name">${esc(a.name)}</span><span class="ac-meta">${esc(a.part)} · ${esc(tagText(a.tag))}</span></div>`).join('');
+    active=0; box.classList.add('show');
+  }
+  function choose(name,part,tag){
+    inp.value=name;
+    const ps=$(inp._acPart); if(ps && [...ps.options].some(o=>o.value===part)) ps.value=part;
+    const ts=$(inp._acTag); if(ts && [...ts.options].some(o=>o.value===tag)) ts.value=tag;
+    box.classList.remove('show');
+  }
+  function upd(items){items.forEach((it,i)=>it.classList.toggle('active',i===active));}
+  inp.addEventListener('input',()=>render(inp.value));
+  inp.addEventListener('focus',()=>{ if(inp.value.trim()) render(inp.value); });
+  inp.addEventListener('keydown',(e)=>{
+    const items=box.querySelectorAll('.ac-item');
+    if(!box.classList.contains('show')||!items.length)return;
+    if(e.key==='ArrowDown'){e.preventDefault();active=Math.min(active+1,items.length-1);upd(items);}
+    else if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(active-1,0);upd(items);}
+    else if(e.key==='Enter'){e.preventDefault();const it=items[active];if(it)choose(it.dataset.name,it.dataset.part,it.dataset.tag);}
+    else if(e.key==='Escape'){box.classList.remove('show');}
+  });
+  box.addEventListener('mousedown',(e)=>{const it=e.target.closest('.ac-item');if(it){e.preventDefault();choose(it.dataset.name,it.dataset.part,it.dataset.tag);}});
+  document.addEventListener('mousedown',(e)=>{ if(!inp._acWrap.contains(e.target)) box.classList.remove('show'); });
 }
 
 /* ---------- 一句话速记：大白话解析 ---------- */
@@ -729,6 +828,7 @@ function load(){
     data.templates=deep(DEFAULT_TEMPLATES);
     save();
   }
+  buildActionLib();
   // 兼容旧版 records 数组结构 -> 直接清空（用户刚创建，无损失）
   if(Array.isArray(data.records)){data.records={};save();}
   // 兼容旧版 posture 结构
@@ -868,7 +968,7 @@ function renderToday(){
   $('dayNote').value=rec.note||'';
   const sel=$('applyTemplateSelect');sel.innerHTML=data.templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
   const spe=$('specialPlanSelect');spe.innerHTML=SPECIAL_PLANS.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  fillDatalist('quickActionList');fillDatalist('addToTmplList');
+  setupAutocomplete('quickActionName','quickActionPart','quickActionTag');setupAutocomplete('addToTmplName','addToTmplPart','addToTmplTag');
 }
 function weekdayTemplate(){
   const w=new Date(currentDate).getDay();
@@ -880,9 +980,7 @@ function markAllDone(v){
   rec.items.forEach(r=>r.done=v);save();renderToday();renderStats();
   toast(v?'全部完成，干得漂亮！🎉':'已取消完成');
 }
-function fillDatalist(id){
-  $(id).innerHTML=data.actions.map(a=>`<option value="${esc(a.name)}">${esc(a.part)}</option>`).join('');
-}
+function fillDatalist(id){ /* 已停用：下拉提示改由 setupAutocomplete 提供 */ }
 function showApplyPanel(){$('applyPanel').style.display='block';$('addPanel').style.display='none';}
 function showAddPanel(){$('addPanel').style.display='block';$('applyPanel').style.display='none';}
 function applyTemplateCore(tid,dateStr){
@@ -1165,7 +1263,7 @@ function renderTemplateEdit(){
       </div>
     </div>
   </div>`).join('');
-  fillDatalist('addToTmplList');
+  setupAutocomplete('addToTmplName','addToTmplPart','addToTmplTag');
 }
 function updTmplItem(i,field,val){
   const t=data.templates.find(x=>x.id===editingTemplateId);if(!t)return;
