@@ -1349,17 +1349,35 @@ const GitHubSync={
     if(res.status===204)return null;
     return res.json();
   },
-  async getRemote(){
+  async resolveBranch(){
+    // 拿仓库真实默认分支，自动修正填错的分支名（master/main 混淆）
+    try{
+      const r=await this.api('/repos/'+encodeRepo(ghCfg.repo));
+      if(r&&r.default_branch&&r.default_branch!==(ghCfg.branch||'main')){
+        ghCfg.branch=r.default_branch;saveGH(ghCfg);return r.default_branch;
+      }
+    }catch(e){}
+    return ghCfg.branch||'main';
+  },
+  async getRemote(attempt=0){
     const mk=(ref)=>'/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath())+(ref?('?ref='+ref):'');
     const ref=ghCfg.branch||'main';
     try{return await this.api(mk(ref));}
     catch(e){
-      // 分支名可能填错（例如仓库默认是 master 却填了 main），退回默认分支再试一次
-      if((e.status===404||e.status===409)&&ref){
-        try{return await this.api(mk(null));}catch(e2){if(e2.status===404||(e2.status===409&&/empty/i.test(e2.message||'')))return null;throw e2;}
+      if(e.status===409&&/empty/i.test(e.message||'')){
+        // GitHub 偶尔瞬时报告“仓库空/不可用”，重试几次通常能恢复，别当真·空仓库处理
+        if(attempt<3){await new Promise(r=>setTimeout(r,1500));return this.getRemote(attempt+1);}
+        return null;
       }
-      if(e.status===404)return null;
-      if(e.status===409&&/empty/i.test(e.message||''))return null;
+      if(e.status===404||(e.status===409&&!/empty/i.test(e.message||''))){
+        const def=await this.resolveBranch();
+        if(def&&def!==ref){
+          try{return await this.api(mk(def));}
+          catch(e2){if(e2.status===404)return null;throw e2;}
+        }
+        if(e.status===404)return null;
+        throw e;
+      }
       throw e;
     }
   },
@@ -1376,6 +1394,27 @@ const GitHubSync={
     catch(e){setGhStatus('拉取失败：'+ghErrorTip(e));}
     finally{ghBusy=false;}
   },
+  async putFile(sha){
+    const content=b64enc(JSON.stringify(data));
+    const body={message:'fitness-workbench sync '+new Date().toISOString(),content,branch:ghCfg.branch||'main'};
+    if(sha)body.sha=sha;
+    await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
+  },
+  async ensureBranch(){
+    const ref=ghCfg.branch||'main';
+    // 该分支 ref 已经存在就什么都不用做（避免 422 reference already exists）
+    try{const r=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs/heads/'+ref);if(r&&r.object)return;}catch(e){if(e.status!==404)throw e;}
+    // 不存在：用仓库默认分支的最新 commit 建一个；若 ref 本身就是默认分支则不需要
+    let base=null;
+    try{const repo=await this.api('/repos/'+encodeRepo(ghCfg.repo));if(repo.default_branch){if(repo.default_branch===ref)return;base=repo.default_branch;}}catch(e){}
+    if(!base)return;
+    let sha=null;
+    try{const b=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs/heads/'+base);sha=b.object&&b.object.sha;}catch(e){}
+    if(sha){
+      try{await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs',{method:'POST',body:JSON.stringify({ref:'refs/heads/'+ref,sha})});}
+      catch(e){if(!(e.status===422&&/already exists/i.test(e.message||'')))throw e;}
+    }
+  },
   async push(){
     if(!this.isOn()||ghBusy)return;
     const json=JSON.stringify(data);
@@ -1383,31 +1422,19 @@ const GitHubSync={
     if(bytes>900000){setGhStatus('数据超 1MB 上限');toast('数据太大，GitHub 放不下，请用导出备份');return;}
     ghBusy=true;setGhStatus('同步中…');
     try{
-      const content=b64enc(json);
       const f=await this.getRemote().catch(()=>null);
-      const body={message:'fitness-workbench sync '+new Date().toISOString(),content,branch:ghCfg.branch||'main'};
-      if(f&&f.sha)body.sha=f.sha;
-      await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
-      setGhStatus('已同步 ☁');}
+      await this.putFile(f&&f.sha?f.sha:null);
+      setGhStatus('已同步 ☁');
+    }
     catch(e){
-      if(e.status===409){
-        // 仓库为空或分支不存在：先尝试初始化仓库（仅当真为空）；若失败（仓库非空/分支已存在），退回带 sha 重试
+      if(e.status===409||e.status===422){
+        // 分支名填错 / 分支不存在 / ref 已存在：自动修正分支后重试，必要时补建分支
         try{
-          await this.initRepo();
-          await this.push();
-          return;
-        }catch(e2){
-          try{
-            const f=await this.getRemote().catch(()=>null);
-            if(f&&f.sha){
-              const content=b64enc(JSON.stringify(data));
-              const body={message:'fitness-workbench sync '+new Date().toISOString(),content,branch:ghCfg.branch||'main',sha:f.sha};
-              await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/contents/'+encodeURIComponent(ghPath()),{method:'PUT',body:JSON.stringify(body)});
-              setGhStatus('已同步 ☁');return;
-            }
-          }catch(e3){}
-          setGhStatus('推送失败：'+ghErrorTip(e2||e));return;
-        }
+          await this.ensureBranch();
+          const f=await this.getRemote().catch(()=>null);
+          await this.putFile(f&&f.sha?f.sha:null);
+          setGhStatus('已同步 ☁');return;
+        }catch(e2){setGhStatus('推送失败：'+ghErrorTip(e2||e));return;}
       }
       setGhStatus('推送失败：'+ghErrorTip(e));
     }
@@ -1419,7 +1446,9 @@ const GitHubSync={
     const blob=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/blobs',{method:'POST',body:JSON.stringify({content,encoding:'base64'})});
     const tree=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/trees',{method:'POST',body:JSON.stringify({tree:[{path:ghPath(),mode:'100644',type:'blob',sha:blob.sha}]})});
     const commit=await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/commits',{method:'POST',body:JSON.stringify({message:'init fitness-data',tree:tree.sha})});
-    await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs',{method:'POST',body:JSON.stringify({ref:'refs/heads/'+ref,sha:commit.sha})});
+    try{
+      await this.api('/repos/'+encodeRepo(ghCfg.repo)+'/git/refs',{method:'POST',body:JSON.stringify({ref:'refs/heads/'+ref,sha:commit.sha})});
+    }catch(e){if(!(e.status===422&&/already exists/i.test(e.message||'')))throw e;}
   },
   maybePush(){if(!this.isOn())return;if(pushTimer)clearTimeout(pushTimer);pushTimer=setTimeout(()=>this.push(),1500);},
   init(){if(this.isOn())this.pull();else setGhStatus('☁ 云端未连接');}
