@@ -1439,6 +1439,7 @@ function ghErrorTip(e){
   if(status===401||msg.indexOf('Bad credentials')>=0)return '未授权：Token 无效或已过期，请重新生成 Token（权限勾选 Contents 读写）。';
   if(status===404||msg.indexOf('Not Found')>=0)return '仓库或文件不存在（404）：①仓库填成「用户名/仓库名」②分支名是否正确③仓库已创建？';
   if(status===403||msg.indexOf('Forbidden')>=0)return '禁止访问（403）：Token 权限不足（没勾这个仓库或没开 Contents 读写）。';
+  if(/does not match|conflict/i.test(msg))return '版本冲突：云端数据刚被更新过，已自动重试；若仍失败请下拉刷新页面后重试。原始回复：'+msg;
   if(status===409)return 'GitHub 说这个仓库「空或暂时不可用」（409）。可能是：①GitHub 后端临时故障（等半小时再试）②钥匙没权限/已过期（去 GitHub 重新生成一把，勾选这个仓库+Contents读写）。原始回复：'+msg;
   return (status?status+' ':'')+msg;
 }
@@ -1451,7 +1452,7 @@ const GitHubSync={
     const ctrl=new AbortController();
     const timer=setTimeout(()=>ctrl.abort(),20000);
     let res;
-    try{res=await fetch('https://api.github.com'+path,{method:opts.method||'GET',headers,body:opts.body,signal:ctrl.signal});}
+    try{res=await fetch('https://api.github.com'+path,{method:opts.method||'GET',headers,body:opts.body,signal:ctrl.signal,cache:'no-store'});}
     catch(e){clearTimeout(timer);throw new Error('请求超时或网络中断，请稍后重试');}
     clearTimeout(timer);
     if(!res.ok){let msg=res.status+' '+(res.statusText||'');
@@ -1540,13 +1541,24 @@ const GitHubSync={
     }
     catch(e){
       if(e.status===409||e.status===422){
-        // 分支名填错 / 分支不存在 / ref 已存在：自动修正分支后重试，必要时补建分支
-        try{
-          await this.ensureBranch();
-          const f=await this.getRemote().catch(()=>null);
-          await this.putFile(f&&f.sha?f.sha:null);
-          setGhStatus('已同步 ☁');return;
-        }catch(e2){setGhStatus('推送失败：'+ghErrorTip(e2||e));return;}
+        // 版本冲突(sha does not match)/分支问题：重新拿最新 sha 后重试，最多 3 次
+        let last=e;
+        for(let i=0;i<3;i++){
+          try{
+            await new Promise(r=>setTimeout(r,800*(i+1)));
+            if(/does not match|conflict/i.test(String(last.message||''))){
+              const f=await this.getRemote().catch(()=>null);
+              await this.putFile(f&&f.sha?f.sha:null);
+            }else{
+              await this.ensureBranch();
+              const f=await this.getRemote().catch(()=>null);
+              await this.putFile(f&&f.sha?f.sha:null);
+            }
+            setGhStatus('已同步 ☁');return;
+          }catch(e2){last=e2;if(!(e2.status===409||e2.status===422))break;}
+        }
+        setGhStatus('推送失败：'+ghErrorTip(last));
+        return;
       }
       setGhStatus('推送失败：'+ghErrorTip(e));
     }
