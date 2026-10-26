@@ -1479,7 +1479,7 @@ const GitHubSync={
     catch(e){
       if(e.status===409&&/empty/i.test(e.message||'')){
         // GitHub 偶尔瞬时报告“仓库空/不可用”，重试几次通常能恢复，别当真·空仓库处理
-        if(attempt<3){await new Promise(r=>setTimeout(r,1500));return this.getRemote(attempt+1);}
+        if(attempt<5){await new Promise(r=>setTimeout(r,1000));return this.getRemote(attempt+1);}
         return null;
       }
       if(e.status===404||(e.status===409&&!/empty/i.test(e.message||''))){
@@ -1534,35 +1534,27 @@ const GitHubSync={
     const bytes=unescape(encodeURIComponent(json)).length;
     if(bytes>900000){setGhStatus('数据超 1MB 上限');toast('数据太大，GitHub 放不下，请用导出备份');return;}
     ghBusy=true;setGhStatus('同步中…');
-    try{
-      const f=await this.getRemote().catch(()=>null);
-      await this.putFile(f&&f.sha?f.sha:null);
-      setGhStatus('已同步 ☁');
-    }
-    catch(e){
-      if(e.status===409||e.status===422){
-        // 版本冲突(sha does not match)/分支问题：重新拿最新 sha 后重试，最多 3 次
-        let last=e;
-        for(let i=0;i<3;i++){
-          try{
-            await new Promise(r=>setTimeout(r,800*(i+1)));
-            if(/does not match|conflict/i.test(String(last.message||''))){
-              const f=await this.getRemote().catch(()=>null);
-              await this.putFile(f&&f.sha?f.sha:null);
-            }else{
-              await this.ensureBranch();
-              const f=await this.getRemote().catch(()=>null);
-              await this.putFile(f&&f.sha?f.sha:null);
-            }
-            setGhStatus('已同步 ☁');return;
-          }catch(e2){last=e2;if(!(e2.status===409||e2.status===422))break;}
+    let lastErr=null;
+    for(let attempt=0;attempt<5;attempt++){
+      try{
+        // 每次都重新拿云端最新版本号（已禁用浏览器缓存），彻底绕开“版本冲突 does not match”
+        const f=await this.getRemote().catch(()=>null);
+        const sha=f&&f.sha?f.sha:null;
+        await this.putFile(sha); // 有 sha=更新已有文件，无 sha=首次新建
+        setGhStatus('已同步 ☁');ghBusy=false;return;
+      }catch(e){
+        lastErr=e;
+        if(e.status===409||e.status===422){
+          // 版本冲突或分支问题：等 GitHub 稳一下，下一轮自动用最新版本号再试，不用你手动点
+          try{await this.ensureBranch();}catch(_){}
+          await new Promise(r=>setTimeout(r,1000*(attempt+1)));
+          continue;
         }
-        setGhStatus('推送失败：'+ghErrorTip(last));
-        return;
+        break; // 401/403/404 等权限类错误不重试，直接报错
       }
-      setGhStatus('推送失败：'+ghErrorTip(e));
     }
-    finally{ghBusy=false;}
+    setGhStatus('推送失败：'+ghErrorTip(lastErr||new Error('未知错误')));
+    ghBusy=false;
   },
   async initRepo(){
     const ref=ghCfg.branch||'main';
