@@ -1479,7 +1479,7 @@ const GitHubSync={
     catch(e){
       if(e.status===409&&/empty/i.test(e.message||'')){
         // GitHub 偶尔瞬时报告“仓库空/不可用”，重试几次通常能恢复，别当真·空仓库处理
-        if(attempt<5){await new Promise(r=>setTimeout(r,1000));return this.getRemote(attempt+1);}
+        if(attempt<2){await new Promise(r=>setTimeout(r,800));return this.getRemote(attempt+1);}
         return null;
       }
       if(e.status===404||(e.status===409&&!/empty/i.test(e.message||''))){
@@ -1535,10 +1535,11 @@ const GitHubSync={
     if(bytes>900000){setGhStatus('数据超 1MB 上限');toast('数据太大，GitHub 放不下，请用导出备份');return;}
     ghBusy=true;setGhStatus('同步中…');
     let lastErr=null;
-    for(let attempt=0;attempt<5;attempt++){
+    for(let attempt=0;attempt<8;attempt++){
       try{
+        if(attempt>0)setGhStatus('同步中…（第'+(attempt+1)+'次重试）');
         // 每次都重新拿云端最新版本号（已禁用浏览器缓存），彻底绕开“版本冲突 does not match”
-        const f=await this.getRemote().catch(()=>null);
+        let f=null;try{f=await this.getRemote();}catch(_){f=null;}
         const sha=f&&f.sha?f.sha:null;
         await this.putFile(sha); // 有 sha=更新已有文件，无 sha=首次新建
         setGhStatus('已同步 ☁');ghBusy=false;return;
@@ -1547,13 +1548,14 @@ const GitHubSync={
         if(e.status===409||e.status===422){
           // 版本冲突或分支问题：等 GitHub 稳一下，下一轮自动用最新版本号再试，不用你手动点
           try{await this.ensureBranch();}catch(_){}
-          await new Promise(r=>setTimeout(r,1000*(attempt+1)));
+          await new Promise(r=>setTimeout(r,1500*(attempt+1)));
           continue;
         }
         break; // 401/403/404 等权限类错误不重试，直接报错
       }
     }
-    setGhStatus('推送失败：'+ghErrorTip(lastErr||new Error('未知错误')));
+    const raw=lastErr?String(lastErr.message||lastErr):'未知错误';
+    setGhStatus('同步失败：'+ghErrorTip(lastErr||new Error('未知错误'))+' 〔'+raw.slice(0,90)+'〕');
     ghBusy=false;
   },
   async initRepo(){
