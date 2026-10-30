@@ -1535,7 +1535,7 @@ const GitHubSync={
     if(bytes>900000){setGhStatus('数据超 1MB 上限');toast('数据太大，GitHub 放不下，请用导出备份');return;}
     ghBusy=true;setGhStatus('同步中…');
     let lastErr=null;
-    for(let attempt=0;attempt<8;attempt++){
+    for(let attempt=0;attempt<6;attempt++){
       try{
         if(attempt>0)setGhStatus('同步中…（第'+(attempt+1)+'次重试）');
         // 每次都重新拿云端最新版本号（已禁用浏览器缓存），彻底绕开“版本冲突 does not match”
@@ -1546,16 +1546,22 @@ const GitHubSync={
       }catch(e){
         lastErr=e;
         if(e.status===409||e.status===422){
-          // 版本冲突或分支问题：等 GitHub 稳一下，下一轮自动用最新版本号再试，不用你手动点
-          try{await this.ensureBranch();}catch(_){}
-          await new Promise(r=>setTimeout(r,1500*(attempt+1)));
+          const m=String((e&&e.message)||'');
+          // ① 仓库/分支是空的（GitHub 回 409 Git Repository is empty）——这就是一直“显示为空”的根因：
+          //    空仓库普通接口写不进去，必须先用 Git 数据接口造出第一个提交，把文件和分支一起建出来
+          if(/empty|does not exist|repository/i.test(m)||attempt>=1){await this.initRepo().catch(()=>{});}
+          // ② 分支名不对/分支不存在：补建分支
+          await this.ensureBranch().catch(()=>{});
+          // ③ 版本冲突(does not match)：什么都不做，下一轮自动重拿最新版本号再存
+          await new Promise(r=>setTimeout(r,1200*(attempt+1)));
           continue;
         }
         break; // 401/403/404 等权限类错误不重试，直接报错
       }
     }
     const raw=lastErr?String(lastErr.message||lastErr):'未知错误';
-    setGhStatus('同步失败：'+ghErrorTip(lastErr||new Error('未知错误'))+' 〔'+raw.slice(0,90)+'〕');
+    const cfg='仓库='+(ghCfg.repo||'')+' 分支='+(ghCfg.branch||'main')+' 文件='+ghPath();
+    setGhStatus('同步失败：'+ghErrorTip(lastErr||new Error('未知错误'))+' 〔'+cfg+'｜'+raw.slice(0,90)+'〕');
     ghBusy=false;
   },
   async initRepo(){
