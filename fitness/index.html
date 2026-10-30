@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>健身打卡工作台</title>
 <style>
   :root{
@@ -126,16 +129,16 @@
   /* 统计页：日历+训练标签 */
   .stats-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
   .stats-month{font-size:18px;font-weight:800;}
-  .stats-wk{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;padding:0 4px;}
-  .stats-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-  .stats-cal .sd{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:5px 4px 6px;min-height:72px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:.1s;}
+  .stats-wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;text-align:center;font-size:11px;color:var(--muted);margin-bottom:6px;}
+  .stats-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
+  .stats-cal .sd{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:5px 4px 6px;min-height:72px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:.1s;min-width:0;overflow:hidden;}
   .stats-cal .sd:active{transform:scale(.98);}
   .stats-cal .sd.empty{background:transparent;border:none;pointer-events:none;}
   .stats-cal .sd.today{border-color:var(--primary);box-shadow:0 0 0 2px rgba(74,59,74,.1);}
   .stats-cal .sd.done-day{background:#F2EAF4;border-color:#C9A9DD;}
   .stats-cal .sd.part-day{background:#FFF3CD;border-color:#F59E0B;border-style:dashed;}
   .stats-cal .sd.part-day .sd-num{color:#B45309;font-weight:800;}
-  .stats-cal .sd-num{font-size:12px;font-weight:700;color:var(--ink);line-height:1;}
+  .stats-cal .sd-num{display:block;text-align:center;font-size:12px;font-weight:700;color:var(--ink);line-height:1;}
   .stats-cal .sd-tags{display:flex;flex-direction:column;gap:2px;margin-top:auto;}
   .sd-tag{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sd-tag.back{background:#D6EAD6;color:#3A6B3A;}      /* 背部训练 */
@@ -184,6 +187,7 @@
 .ac-item.active,.ac-item:hover{background:#eef4ff;}
 .ac-name{font-weight:600;color:#2b3a55;}
 .ac-meta{font-size:12px;color:#8a93a6;white-space:nowrap;}
+.upd-bar{margin-top:10px;background:#FFF3CD;color:#856404;font-size:12px;font-weight:700;padding:9px 12px;border-radius:12px;cursor:pointer;text-align:center;display:none;}
 </style>
 </head>
 <body>
@@ -196,6 +200,7 @@
       <span class="gh-left"><span class="gh-dot" id="ghDot"></span><span id="ghStatus">☁ 云端未连接</span></span>
       <span class="gh-right">设置同步 ›</span>
     </div>
+    <div class="upd-bar" id="updBar" onclick="forceUpdate()">🔄 检测到新版本！你手机现在打开的是旧页面（可能一直在用缓存），点我更新到最新版</div>
   </header>
 
   <main class="main" id="mainBox">
@@ -337,7 +342,11 @@
             <button class="btn-secondary" onclick="exportData()">导出备份</button>
             <button class="btn-secondary" onclick="importData()">导入恢复</button>
           </div>
-          <div class="note" style="margin-top:10px;">数据只存在你自己的浏览器里。换手机或清缓存前，务必先「导出备份」。</div>
+          <div class="row" style="margin-top:8px;align-items:center;">
+            <button class="btn-secondary" onclick="forceUpdate()">🔄 检查更新</button>
+            <span id="verLabel" style="font-size:11px;color:var(--muted);"></span>
+          </div>
+          <div class="note" style="margin-top:10px;">数据只存在你自己的浏览器里。换手机或清缓存前，务必先「导出备份」。若感觉页面老旧/报错对不上，点上面的「检查更新」。</div>
         </div>
       </div>
     </section>
@@ -1624,8 +1633,25 @@ function getDayTags(rec,doneOnly){
   return out.slice(0,4);
 }
 
+/* ---------- 版本自检（防止手机缓存旧页面） ---------- */
+const APP_VERSION='2026.10.30.2';
+function setVersionLabel(){const el=$('verLabel');if(el)el.textContent='版本 '+APP_VERSION;}
+function forceUpdate(){
+  // 换一个带时间戳的网址重新打开，强制浏览器放弃缓存、拉最新页面
+  location.href=location.origin+location.pathname+'?v='+Date.now();
+}
+async function checkUpdate(){
+  try{
+    const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const v=(await r.text()||'').trim();
+    if(v&&v!==APP_VERSION){const b=$('updBar');if(b)b.style.display='block';}
+  }catch(e){}
+}
+
 load();renderAll();
 GitHubSync.init();
+setVersionLabel();checkUpdate();
 </script>
 <div id="modalRoot"></div>
 </body>
